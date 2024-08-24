@@ -1,14 +1,24 @@
 # Image to Ascii
 Preston Engler
 
+Currently only supports building on Windows using the precompiled lib-static-ucrt GLFW binary.  
 This repository uses cimgui and imgui as submodules, please clone using the --recursive flag
 
-The project can be built and run with 'zig build run'
+The project can be built and run with `zig build run`  
 If running the executable manually after build, ensure the appropriate glfw3.dll file is in the same directory
 
-## Acquiring libraries 
-Install the Vulkan SDK from [here](https://vulkan.lunarg.com/sdk/home)
-Get glfw binaries from [here](https://www.glfw.org/)
+## Prerequisites
+1. Install zig from your favorite package manager, or manually if needed
 
-## Linking libraries 
-If on Windows, you must link with the glfw lib-static-ucrt files to get it working with the Zig linker
+2. Install the Vulkan SDK from [here](https://vulkan.lunarg.com/sdk/home)
+
+3. Get glfw binaries from [here](https://www.glfw.org/download.html). Download the precompiled binaries and place them directly under /lib
+
+Example folder structure: 
+```
+lib
+└───glfw-3.4.bin.WIN64
+    ├───include
+    │   └───GLFW
+    └───lib-static-ucrt
+```
