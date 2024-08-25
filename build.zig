@@ -40,7 +40,8 @@ fn findVulkanSDK(a: *std.ArrayList(u8)) !void {
     const env_map = try arena.allocator().create(std.process.EnvMap);
     env_map.* = try std.process.getEnvMap(arena.allocator());
 
-    const location = env_map.get("VULKAN_SDK") orelse std.debug.panic("VULKAN_SDK environment variable not found, please install the vulkan SDK!\n", .{});
+    const location = env_map.get("VULKAN_SDK") orelse
+        std.debug.panic("VULKAN_SDK environment variable not found, please install the vulkan SDK!\n", .{});
 
     try a.appendSlice(location);
 }
