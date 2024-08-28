@@ -16,7 +16,7 @@ var window: *c.GLFWwindow = undefined;
 
 pub fn main() !u8 {
     initWindow();
-    try initVulkan();
+    initVulkan();
 
     //Begin main loop
     while (c.glfwWindowShouldClose(window) == 0) {
@@ -61,8 +61,9 @@ const VkStruct = struct {
 var vk = VkStruct{};
 var instance: c.VkInstance = undefined;
 var surface: c.VkSurfaceKHR = undefined;
+var physicalDevice: c.VkPhysicalDevice = undefined;
 
-fn initVulkan() !void {
+fn initVulkan() void {
     //Check for Vulkan Support
     if (c.glfwVulkanSupported() == c.GL_FALSE) {
         std.debug.panic("Vulkan is not supported\n", .{});
@@ -80,7 +81,7 @@ fn initVulkan() !void {
     //TODO: Add debug callback and handle Validation Layers
 
     //Pick Vulkan device
-    try pickPhysicalDevice();
+    pickPhysicalDevice();
 
     //Query GLFW for presentation support
 
@@ -124,7 +125,7 @@ fn createInstance() void {
     }
 }
 
-fn pickPhysicalDevice() !void {
+fn pickPhysicalDevice() void {
     var count: u32 = 0;
     _ = vk.enumeratePhysicalDevices.?(instance, &count, null);
     if (count == 0) {
@@ -133,7 +134,9 @@ fn pickPhysicalDevice() !void {
         std.debug.print("{d} GPU with Vulkan support found\n", .{count});
     }
 
-    const devices = try std.heap.c_allocator.alloc(c.VkPhysicalDevice, count);
+    const devices = std.heap.c_allocator.alloc(c.VkPhysicalDevice, count) catch {
+        std.debug.panic("Failed to allocate on the heap\n", .{});
+    };
     defer std.heap.c_allocator.free(devices);
     _ = vk.enumeratePhysicalDevices.?(instance, &count, @ptrCast(devices));
 }
