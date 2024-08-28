@@ -22,3 +22,8 @@ lib
     │   └───GLFW
     └───lib-static-ucrt
 ```
+
+## In Case You Want To DIY
+[GLFW Quick Start](https://www.glfw.org/docs/latest/quick.html)
+[GLFW Vulkan Guide](https://www.glfw.org/docs/latest/vulkan_guide.html)
+[Vulkan Tutorial (Conveniently uses GLFW)](https://vulkan-tutorial.com/Introduction)
