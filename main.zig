@@ -16,7 +16,7 @@ var window: *c.GLFWwindow = undefined;
 
 pub fn main() !u8 {
     initWindow();
-    initVulkan();
+    Vk.initVulkan();
 
     //Begin main loop
     while (c.glfwWindowShouldClose(window) == 0) {
@@ -51,130 +51,174 @@ fn initWindow() void {
     _ = c.glfwSetKeyCallback(window, key_callback);
 }
 
-//Hold Vulkan function pointers in vk variable
-const VkStruct = struct {
-    createInstance: c.PFN_vkCreateInstance = undefined,
-    createDevice: c.PFN_vkCreateDevice = undefined,
-    destroyInstance: c.PFN_vkDestroyInstance = undefined,
-    enumeratePhysicalDevices: c.PFN_vkEnumeratePhysicalDevices = undefined,
-    getPhysicalDeviceQueueFamilyProperties: c.PFN_vkGetPhysicalDeviceQueueFamilyProperties = undefined,
-};
-var vk = VkStruct{};
-var instance: c.VkInstance = undefined;
-var surface: c.VkSurfaceKHR = undefined;
-var physicalDevice: c.VkPhysicalDevice = undefined;
-var queueIndex: u32 = undefined;
+//Hold vulkan vars and //
+pub const Vk = struct {
+    //Hold Vulkan function pointers in vk variable
+    var vkCreateInstance: c.PFN_vkCreateInstance = undefined;
+    var vkCreateDevice: c.PFN_vkCreateDevice = undefined;
+    var vkDestroyInstance: c.PFN_vkDestroyInstance = undefined;
+    var vkEnumeratePhysicalDevices: c.PFN_vkEnumeratePhysicalDevices = undefined;
+    var vkGetPhysicalDeviceQueueFamilyProperties: c.PFN_vkGetPhysicalDeviceQueueFamilyProperties = undefined;
+    var vkGetPhysicalDeviceProperties: c.PFN_vkGetPhysicalDeviceProperties = undefined;
+    var vkGetPhysicalDeviceFeatures: c.PFN_vkGetPhysicalDeviceFeatures = undefined;
+    var vkDestroyDevice: c.PFN_vkDestroyDevice = undefined;
+    var vkGetDeviceQueue: c.PFN_vkGetDeviceQueue = undefined;
 
-fn initVulkan() void {
-    //Check for Vulkan Support
-    if (c.glfwVulkanSupported() == c.GL_FALSE) {
-        std.debug.panic("Vulkan is not supported\n", .{});
-    }
+    var instance: c.VkInstance = undefined;
+    var surface: c.VkSurfaceKHR = undefined;
+    var physicalDevice: c.VkPhysicalDevice = undefined;
+    var queueFamilyIndex: u32 = undefined;
+    var device: c.VkDevice = undefined;
+    var graphicsQueue: c.VkQueue = undefined;
+    var presentQueue: c.VkQueue = undefined;
 
-    //Get function pointers necessary to create instance
-    vk.createInstance = @ptrCast(c.glfwGetInstanceProcAddress(null, "vkCreateInstance"));
+    fn initVulkan() void {
+        //Check for Vulkan Support
+        if (c.glfwVulkanSupported() == c.GL_FALSE) {
+            std.debug.panic("Vulkan is not supported\n", .{});
+        }
 
-    //Create Vulkan instance
-    createInstance();
+        //Get function pointers necessary to create instance
+        vkCreateInstance = @ptrCast(c.glfwGetInstanceProcAddress(null, "vkCreateInstance"));
 
-    //Get the rest of the function pointers
-    vk.createDevice = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateDevice"));
-    vk.destroyInstance = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyInstance"));
-    vk.enumeratePhysicalDevices = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkEnumeratePhysicalDevices"));
-    vk.getPhysicalDeviceQueueFamilyProperties = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceQueueFamilyProperties"));
+        //Create Vulkan instance
+        createInstance();
 
-    //TODO: Add debug callback and handle Validation Layers
+        //Get the rest of the function pointers
+        vkCreateDevice = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateDevice"));
+        vkDestroyInstance = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyInstance"));
+        vkEnumeratePhysicalDevices = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkEnumeratePhysicalDevices"));
+        vkGetPhysicalDeviceQueueFamilyProperties = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceQueueFamilyProperties"));
+        vkGetPhysicalDeviceFeatures = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceFeatures"));
+        vkGetPhysicalDeviceProperties = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceProperties"));
+        vkDestroyDevice = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyDevice"));
+        vkGetDeviceQueue = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetDeviceQueue"));
 
-    //Pick Vulkan device and find the right queue family
-    physicalDevice = pickPhysicalDevice();
-    queueIndex = findQueue() orelse std.debug.panic("Graphics queue family not found\n", .{});
+        //TODO: Add debug callback and handle Validation Layers
 
-    //Query GLFW for presentation support
+        //Pick Vulkan device and find the right queue family
+        pickPhysicalDevice();
+        queueFamilyIndex = findQueueFamily() orelse std.debug.panic("Graphics queue family not found\n", .{});
 
-    //Create a GLFW surface linked to the window
-    //TODO: check what the parameter VkAllocationCallbacks allocator is,
-    //currently null (using the default allocator)
-    if (c.glfwCreateWindowSurface(instance, window, null, &surface) != c.VK_SUCCESS) {
-        std.debug.panic("Failed to create vulkan window surface\n", .{});
-    } else {
-        std.debug.print("Vulkan surface successfully created\n", .{});
-    }
-}
+        //Query GLFW for presentation support
+        if (c.glfwGetPhysicalDevicePresentationSupport(instance, physicalDevice, queueFamilyIndex) == c.GLFW_FALSE) {
+            std.debug.panic("GLFW Presentation not supported\n", .{});
+        }
 
-//Populates the instance variable
-fn createInstance() void {
+        //Create a logical device
+        createLogicalDevice();
 
-    //Query required vulkan extensions
-    var count: u32 = undefined;
-    const vulkanExtensions = c.glfwGetRequiredInstanceExtensions(&count) orelse
-        std.debug.panic("Failed to get required Vulkan Extensions\n", .{});
+        vkGetDeviceQueue.?(device, queueFamilyIndex, 0, &graphicsQueue);
 
-    //Print vulkan extensions
-    std.debug.print("{d} Required Vulkan extensions:\n", .{count});
-    for (vulkanExtensions[0..count]) |ext| {
-        std.debug.print("\t{s}\n", .{ext});
-    }
-
-    //Create Vulkan instance
-    var instanceCreateInfo: c.VkInstanceCreateInfo = .{
-        .sType = c.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pNext = null,
-        .flags = 0,
-        .pApplicationInfo = null,
-        .enabledLayerCount = 0,
-        .ppEnabledLayerNames = null,
-        .enabledExtensionCount = count,
-        .ppEnabledExtensionNames = vulkanExtensions,
-    };
-    if (vk.createInstance.?(&instanceCreateInfo, null, &instance) != c.VK_SUCCESS) {
-        std.debug.panic("Failed to create Vulkan instance\n", .{});
-    }
-}
-
-fn pickPhysicalDevice() c.VkPhysicalDevice {
-    var count: u32 = 0;
-    _ = vk.enumeratePhysicalDevices.?(instance, &count, null);
-    if (count == 0) {
-        std.debug.panic("No GPUs with Vulkan support\n", .{});
-    } else {
-        std.debug.print("{d} GPU with Vulkan support found\n", .{count});
-    }
-
-    const devices = std.heap.c_allocator.alloc(c.VkPhysicalDevice, count) catch {
-        heapFailure();
-    };
-    defer std.heap.c_allocator.free(devices);
-    _ = vk.enumeratePhysicalDevices.?(instance, &count, @ptrCast(devices));
-
-    if (count == 1) {
-        return devices[0];
-    } else {
-        std.debug.print("WARNING: Multiple Vulkan GPUs found, picking first option...\n", .{});
-        return devices[0];
-    }
-}
-
-fn findQueue() ?u32 {
-    var queueFamilyCount: u32 = 0;
-    vk.getPhysicalDeviceQueueFamilyProperties.?(physicalDevice, &queueFamilyCount, null);
-    const queueFamilies = std.heap.c_allocator.alloc(c.VkQueueFamilyProperties, queueFamilyCount) catch {
-        heapFailure();
-    };
-    defer std.heap.c_allocator.free(queueFamilies);
-
-    for (queueFamilies, 0..) |queueFamily, i| {
-        if (queueFamily.queueFlags & c.VK_QUEUE_GRAPHICS_BIT > 0) {
-            return @intCast(i);
+        //Create a GLFW surface linked to the window
+        //TODO: check what the parameter VkAllocationCallbacks allocator is,
+        //currently null (using the default allocator)
+        if (c.glfwCreateWindowSurface(instance, window, null, &surface) != c.VK_SUCCESS) {
+            std.debug.panic("Failed to create vulkan window surface\n", .{});
+        } else {
+            std.debug.print("Vulkan surface successfully created\n", .{});
         }
     }
 
-    //TODO no graphics queue family found??? try tossing queues into the glfw check presentation support function?
+    //Populates the instance variable
+    fn createInstance() void {
 
-    return null;
-}
+        //Query required vulkan extensions
+        var count: u32 = undefined;
+        const vulkanExtensions = c.glfwGetRequiredInstanceExtensions(&count) orelse
+            std.debug.panic("Failed to get required Vulkan Extensions\n", .{});
+
+        //Print vulkan extensions
+        std.debug.print("{d} Required Vulkan extensions:\n", .{count});
+        for (vulkanExtensions[0..count]) |ext| {
+            std.debug.print("\t{s}\n", .{ext});
+        }
+
+        //Create Vulkan instance
+        var instanceCreateInfo: c.VkInstanceCreateInfo = .{
+            .sType = c.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            .pNext = null,
+            .flags = 0,
+            .pApplicationInfo = null,
+            .enabledLayerCount = 0,
+            .ppEnabledLayerNames = null,
+            .enabledExtensionCount = count,
+            .ppEnabledExtensionNames = vulkanExtensions,
+        };
+        if (vkCreateInstance.?(&instanceCreateInfo, null, &instance) != c.VK_SUCCESS) {
+            std.debug.panic("Failed to create Vulkan instance\n", .{});
+        }
+    }
+
+    fn pickPhysicalDevice() void {
+        var count: u32 = 0;
+        _ = vkEnumeratePhysicalDevices.?(instance, &count, null);
+        if (count == 0) {
+            std.debug.panic("No GPUs with Vulkan support\n", .{});
+        } else {
+            std.debug.print("{d} GPU with Vulkan support found\n", .{count});
+        }
+
+        const devices = std.heap.c_allocator.alloc(c.VkPhysicalDevice, count) catch {
+            heapFailure();
+        };
+        defer std.heap.c_allocator.free(devices);
+        _ = vkEnumeratePhysicalDevices.?(instance, &count, @ptrCast(devices));
+
+        //TODO check for appropriate PhysicalDeviceProperties and PhysicalDeviceFeatures
+
+        if (count == 1) {
+            physicalDevice = devices[0];
+        } else {
+            std.debug.print("WARNING: Multiple Vulkan GPUs found, picking first option...\n", .{});
+            physicalDevice = devices[0];
+        }
+    }
+
+    fn findQueueFamily() ?u32 {
+        var queueFamilyCount: u32 = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties.?(physicalDevice, &queueFamilyCount, null);
+        const queueFamilies = std.heap.c_allocator.alloc(c.VkQueueFamilyProperties, queueFamilyCount) catch {
+            heapFailure();
+        };
+        defer std.heap.c_allocator.free(queueFamilies);
+        vkGetPhysicalDeviceQueueFamilyProperties.?(physicalDevice, &queueFamilyCount, @ptrCast(queueFamilies));
+
+        for (queueFamilies, 0..) |queueFamily, i| {
+            if (queueFamily.queueFlags & c.VK_QUEUE_GRAPHICS_BIT > 0) {
+                return @intCast(i);
+            }
+        }
+
+        return null;
+    }
+
+    fn createLogicalDevice() void {
+        const queuePriority: f32 = 1.0;
+        const queueCreateInfo: c.VkDeviceQueueCreateInfo = .{
+            .sType = c.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = queueFamilyIndex,
+            .queueCount = 1,
+            .pQueuePriorities = @ptrCast(&queuePriority),
+        };
+        const deviceFeatures: c.VkPhysicalDeviceFeatures = .{};
+        const createInfo: c.VkDeviceCreateInfo = .{
+            .sType = c.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .pQueueCreateInfos = &queueCreateInfo,
+            .queueCreateInfoCount = 1,
+            .pEnabledFeatures = &deviceFeatures,
+            .enabledExtensionCount = 0,
+            .enabledLayerCount = 0,
+        };
+        if (vkCreateDevice.?(physicalDevice, &createInfo, null, @ptrCast(&device)) != c.VK_SUCCESS) {
+            std.debug.panic("Failed to create logical device\n", .{});
+        }
+    }
+};
 
 fn cleanup() void {
-    vk.destroyInstance.?(instance, null);
+    Vk.vkDestroyDevice.?(Vk.device, null);
+    Vk.vkDestroyInstance.?(Vk.instance, null);
     c.glfwDestroyWindow(window);
     c.glfwTerminate();
 }
