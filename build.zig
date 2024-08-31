@@ -28,13 +28,12 @@ pub fn build(b: *std.Build) !void {
     }
 
     //OS dependent building:
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+
+    var vulkanPathStr = std.ArrayList(u8).init(arena.allocator());
+    defer vulkanPathStr.deinit();
     if (buildOs == os.windows) {
-        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-        defer arena.deinit();
-
-        var vulkanPathStr = std.ArrayList(u8).init(arena.allocator());
-        defer vulkanPathStr.deinit();
-
         try findVulkanSDK(&vulkanPathStr);
         try vulkanPathStr.appendSlice("\\Include");
         const vulkanPath: std.Build.LazyPath = .{ .cwd_relative = vulkanPathStr.items };
