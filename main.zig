@@ -57,11 +57,13 @@ const VkStruct = struct {
     createDevice: c.PFN_vkCreateDevice = undefined,
     destroyInstance: c.PFN_vkDestroyInstance = undefined,
     enumeratePhysicalDevices: c.PFN_vkEnumeratePhysicalDevices = undefined,
+    getPhysicalDeviceQueueFamilyProperties: c.PFN_vkGetPhysicalDeviceQueueFamilyProperties = undefined,
 };
 var vk = VkStruct{};
 var instance: c.VkInstance = undefined;
 var surface: c.VkSurfaceKHR = undefined;
 var physicalDevice: c.VkPhysicalDevice = undefined;
+var queueIndex: u32 = undefined;
 
 fn initVulkan() void {
     //Check for Vulkan Support
@@ -69,19 +71,23 @@ fn initVulkan() void {
         std.debug.panic("Vulkan is not supported\n", .{});
     }
 
-    //Get function pointers
+    //Get function pointers necessary to create instance
     vk.createInstance = @ptrCast(c.glfwGetInstanceProcAddress(null, "vkCreateInstance"));
-    vk.createDevice = @ptrCast(c.glfwGetInstanceProcAddress(null, "vkCreateDevice"));
-    vk.destroyInstance = @ptrCast(c.glfwGetInstanceProcAddress(null, "vkDestroyInstance"));
-    vk.enumeratePhysicalDevices = @ptrCast(c.glfwGetInstanceProcAddress(null, "vkEnumeratePhysicalDevices"));
 
     //Create Vulkan instance
     createInstance();
 
+    //Get the rest of the function pointers
+    vk.createDevice = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateDevice"));
+    vk.destroyInstance = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyInstance"));
+    vk.enumeratePhysicalDevices = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkEnumeratePhysicalDevices"));
+    vk.getPhysicalDeviceQueueFamilyProperties = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceQueueFamilyProperties"));
+
     //TODO: Add debug callback and handle Validation Layers
 
-    //Pick Vulkan device
-    pickPhysicalDevice();
+    //Pick Vulkan device and find the right queue family
+    physicalDevice = pickPhysicalDevice();
+    queueIndex = findQueue() orelse std.debug.panic("Graphics queue family not found\n", .{});
 
     //Query GLFW for presentation support
 
@@ -125,7 +131,7 @@ fn createInstance() void {
     }
 }
 
-fn pickPhysicalDevice() void {
+fn pickPhysicalDevice() c.VkPhysicalDevice {
     var count: u32 = 0;
     _ = vk.enumeratePhysicalDevices.?(instance, &count, null);
     if (count == 0) {
@@ -135,10 +141,36 @@ fn pickPhysicalDevice() void {
     }
 
     const devices = std.heap.c_allocator.alloc(c.VkPhysicalDevice, count) catch {
-        std.debug.panic("Failed to allocate on the heap\n", .{});
+        heapFailure();
     };
     defer std.heap.c_allocator.free(devices);
     _ = vk.enumeratePhysicalDevices.?(instance, &count, @ptrCast(devices));
+
+    if (count == 1) {
+        return devices[0];
+    } else {
+        std.debug.print("WARNING: Multiple Vulkan GPUs found, picking first option...\n", .{});
+        return devices[0];
+    }
+}
+
+fn findQueue() ?u32 {
+    var queueFamilyCount: u32 = 0;
+    vk.getPhysicalDeviceQueueFamilyProperties.?(physicalDevice, &queueFamilyCount, null);
+    const queueFamilies = std.heap.c_allocator.alloc(c.VkQueueFamilyProperties, queueFamilyCount) catch {
+        heapFailure();
+    };
+    defer std.heap.c_allocator.free(queueFamilies);
+
+    for (queueFamilies, 0..) |queueFamily, i| {
+        if (queueFamily.queueFlags & c.VK_QUEUE_GRAPHICS_BIT > 0) {
+            return @intCast(i);
+        }
+    }
+
+    //TODO no graphics queue family found??? try tossing queues into the glfw check presentation support function?
+
+    return null;
 }
 
 fn cleanup() void {
@@ -175,4 +207,8 @@ inline fn loop() void {
     }
 
     c.glfwPollEvents();
+}
+
+inline fn heapFailure() noreturn {
+    std.debug.panic("Failed to allocate on the heap\n", .{});
 }
