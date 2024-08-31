@@ -51,8 +51,13 @@ fn initWindow() void {
     _ = c.glfwSetKeyCallback(window, key_callback);
 }
 
-//Hold vulkan vars and //
+//Hold vulkan vars and functions in a struct
 pub const Vk = struct {
+    const QueueFamilyIndices = struct {
+        graphics: ?u32 = null,
+        presentation: ?u32 = null,
+    };
+
     //Hold Vulkan function pointers in vk variable
     var vkCreateInstance: c.PFN_vkCreateInstance = undefined;
     var vkCreateDevice: c.PFN_vkCreateDevice = undefined;
@@ -63,14 +68,18 @@ pub const Vk = struct {
     var vkGetPhysicalDeviceFeatures: c.PFN_vkGetPhysicalDeviceFeatures = undefined;
     var vkDestroyDevice: c.PFN_vkDestroyDevice = undefined;
     var vkGetDeviceQueue: c.PFN_vkGetDeviceQueue = undefined;
+    var vkGetPhysicalDeviceSurfaceSupportKHR: c.PFN_vkGetPhysicalDeviceSurfaceSupportKHR = undefined;
 
     var instance: c.VkInstance = undefined;
     var surface: c.VkSurfaceKHR = undefined;
     var physicalDevice: c.VkPhysicalDevice = undefined;
-    var queueFamilyIndex: u32 = undefined;
     var device: c.VkDevice = undefined;
     var graphicsQueue: c.VkQueue = undefined;
     var presentQueue: c.VkQueue = undefined;
+
+    const deviceExtensions = [_]u8{
+        c.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    };
 
     fn initVulkan() void {
         //Check for Vulkan Support
@@ -84,6 +93,15 @@ pub const Vk = struct {
         //Create Vulkan instance
         createInstance();
 
+        //Create a GLFW surface linked to the window
+        //TODO: check what the parameter VkAllocationCallbacks allocator is,
+        //currently null (using the default allocator)
+        if (c.glfwCreateWindowSurface(instance, window, null, &surface) != c.VK_SUCCESS) {
+            std.debug.panic("Failed to create vulkan window surface\n", .{});
+        } else {
+            std.debug.print("Vulkan surface successfully created\n", .{});
+        }
+
         //Get the rest of the function pointers
         vkCreateDevice = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateDevice"));
         vkDestroyInstance = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyInstance"));
@@ -93,31 +111,25 @@ pub const Vk = struct {
         vkGetPhysicalDeviceProperties = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceProperties"));
         vkDestroyDevice = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyDevice"));
         vkGetDeviceQueue = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetDeviceQueue"));
+        vkGetPhysicalDeviceSurfaceSupportKHR = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceSurfaceSupportKHR"));
 
         //TODO: Add debug callback and handle Validation Layers
 
-        //Pick Vulkan device and find the right queue family
+        //Pick Vulkan device and find the queue families
         pickPhysicalDevice();
-        queueFamilyIndex = findQueueFamily() orelse std.debug.panic("Graphics queue family not found\n", .{});
+        const indices = findQueueFamilies(physicalDevice);
 
         //Query GLFW for presentation support
-        if (c.glfwGetPhysicalDevicePresentationSupport(instance, physicalDevice, queueFamilyIndex) == c.GLFW_FALSE) {
+        if (c.glfwGetPhysicalDevicePresentationSupport(instance, physicalDevice, indices.presentation.?) == c.GLFW_FALSE) {
             std.debug.panic("GLFW Presentation not supported\n", .{});
         }
 
         //Create a logical device
-        createLogicalDevice();
+        createLogicalDevice(indices.graphics.?);
 
-        vkGetDeviceQueue.?(device, queueFamilyIndex, 0, &graphicsQueue);
-
-        //Create a GLFW surface linked to the window
-        //TODO: check what the parameter VkAllocationCallbacks allocator is,
-        //currently null (using the default allocator)
-        if (c.glfwCreateWindowSurface(instance, window, null, &surface) != c.VK_SUCCESS) {
-            std.debug.panic("Failed to create vulkan window surface\n", .{});
-        } else {
-            std.debug.print("Vulkan surface successfully created\n", .{});
-        }
+        //Create queues
+        vkGetDeviceQueue.?(device, indices.graphics.?, 0, &graphicsQueue);
+        vkGetDeviceQueue.?(device, indices.presentation.?, 0, &presentQueue);
     }
 
     //Populates the instance variable
@@ -165,35 +177,57 @@ pub const Vk = struct {
         defer std.heap.c_allocator.free(devices);
         _ = vkEnumeratePhysicalDevices.?(instance, &count, @ptrCast(devices));
 
-        //TODO check for appropriate PhysicalDeviceProperties and PhysicalDeviceFeatures
+        for (devices) |d| {
+            if (isDeviceSuitable(d) == true) {
+                physicalDevice = d;
+                return;
+            }
+        }
 
-        if (count == 1) {
-            physicalDevice = devices[0];
+        std.debug.panic("No suitable devices found\n", .{});
+    }
+
+    fn isDeviceSuitable(d: c.VkPhysicalDevice) bool {
+        //TODO check for appropriate PhysicalDeviceProperties and PhysicalDeviceFeatures
+        const indices = findQueueFamilies(d);
+        if (indices.graphics != null and indices.presentation != null) {
+            return true;
         } else {
-            std.debug.print("WARNING: Multiple Vulkan GPUs found, picking first option...\n", .{});
-            physicalDevice = devices[0];
+            return false;
         }
     }
 
-    fn findQueueFamily() ?u32 {
+    fn findQueueFamilies(thisDevice: c.VkPhysicalDevice) QueueFamilyIndices {
+        var ret: QueueFamilyIndices = .{};
+
         var queueFamilyCount: u32 = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties.?(physicalDevice, &queueFamilyCount, null);
+        vkGetPhysicalDeviceQueueFamilyProperties.?(thisDevice, &queueFamilyCount, null);
         const queueFamilies = std.heap.c_allocator.alloc(c.VkQueueFamilyProperties, queueFamilyCount) catch {
             heapFailure();
         };
         defer std.heap.c_allocator.free(queueFamilies);
-        vkGetPhysicalDeviceQueueFamilyProperties.?(physicalDevice, &queueFamilyCount, @ptrCast(queueFamilies));
+        vkGetPhysicalDeviceQueueFamilyProperties.?(thisDevice, &queueFamilyCount, @ptrCast(queueFamilies));
 
         for (queueFamilies, 0..) |queueFamily, i| {
             if (queueFamily.queueFlags & c.VK_QUEUE_GRAPHICS_BIT > 0) {
-                return @intCast(i);
+                ret.graphics = @intCast(i);
+            }
+            var presentSupport: c.VkBool32 = undefined;
+            _ = vkGetPhysicalDeviceSurfaceSupportKHR.?(thisDevice, @intCast(i), surface, &presentSupport);
+            if (presentSupport == c.VK_TRUE) {
+                ret.presentation = @intCast(i);
+            }
+
+            //Early return if appropriate queuefamilies found
+            if (ret.graphics != null and ret.presentation != null) {
+                return ret;
             }
         }
 
-        return null;
+        return ret;
     }
 
-    fn createLogicalDevice() void {
+    fn createLogicalDevice(queueFamilyIndex: u32) void {
         const queuePriority: f32 = 1.0;
         const queueCreateInfo: c.VkDeviceQueueCreateInfo = .{
             .sType = c.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
