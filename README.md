@@ -1,13 +1,18 @@
 # Image to Ascii
 Preston Engler
 
-Currently only supports building on Windows using the precompiled lib-static-ucrt GLFW binary.  
-This repository uses cimgui and imgui as submodules, please clone using the --recursive flag
+Image to Ascii is a little experimental project using Zig directly with GLFW + Vulkan.  
+The goal is to make some interesting shaders (such as the name of the project) and use cimgui to modify various parameters.  
+This repository uses cimgui and imgui as submodules, please clone using the --recursive flag, or by doing: `git submodule update --init --recursive`  
 
-The project can be built and run with `zig build run`  
-If running the executable manually after build, ensure the appropriate glfw3.dll file is in the same directory
+## Building on Linux
+Install zig, glfw, vulkan-devel  
+Build with `zig build run`  
+Simple as
 
-## Prerequisites
+## Building on Windows
+Currently only supports building on Windows using the precompiled lib-static-ucrt GLFW binary with glfw-3.4.  
+
 1. Install zig from your favorite package manager, or manually if needed
 
 2. Install the Vulkan SDK from [here](https://vulkan.lunarg.com/sdk/home)
@@ -22,6 +27,10 @@ lib
     │   └───GLFW
     └───lib-static-ucrt
 ```
+
+The project can be built and run with `zig build run`, this automatically adds the glfw3.dll to the path while running  
+If running the executable manually after build, ensure the appropriate glfw3.dll file is in the same directory
+
 
 ## In Case You Want To DIY
 [GLFW Quick Start](https://www.glfw.org/docs/latest/quick.html)  
