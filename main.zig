@@ -94,6 +94,8 @@ pub const Vk = struct {
     var vkCreateSwapchainKHR: c.PFN_vkCreateSwapchainKHR = undefined;
     var vkDestroySwapchainKHR: c.PFN_vkDestroySwapchainKHR = undefined;
     var vkGetSwapchainImagesKHR: c.PFN_vkGetSwapchainImagesKHR = undefined;
+    var vkCreateImageView: c.PFN_vkCreateImageView = undefined;
+    var vkDestroyImageView: c.PFN_vkDestroyImageView = undefined;
 
     var instance: c.VkInstance = undefined;
     var surface: c.VkSurfaceKHR = undefined;
@@ -106,6 +108,8 @@ pub const Vk = struct {
     var swapChainImages: std.ArrayList(c.VkImage) = undefined;
     var swapChainImageFormat: c.VkFormat = undefined;
     var swapChainExtent: c.VkExtent2D = undefined;
+
+    var swapChainImageViews: std.ArrayList(c.VkImageView) = undefined;
 
     const deviceExtensions = [_][*:0]const u8{
         c.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -149,6 +153,8 @@ pub const Vk = struct {
         vkCreateSwapchainKHR = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateSwapchainKHR"));
         vkDestroySwapchainKHR = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroySwapchainKHR"));
         vkGetSwapchainImagesKHR = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetSwapchainImagesKHR"));
+        vkCreateImageView = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateImageView"));
+        vkDestroyImageView = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyImageView"));
 
         //TODO: Add debug callback and handle Validation Layers
 
@@ -170,6 +176,8 @@ pub const Vk = struct {
 
         //Create Swap Chain
         createSwapChain();
+
+        createImageViews();
     }
 
     //Populates the instance variable
@@ -444,12 +452,56 @@ pub const Vk = struct {
             };
         }
     }
+
+    fn createImageViews() void {
+        swapChainImageViews = std.ArrayList(c.VkImageView).init(std.heap.c_allocator);
+        const mem = swapChainImageViews.addManyAsSlice(swapChainImages.items.len) catch {
+            heapFailure();
+        };
+
+        for (mem, 0..) |*element, i| {
+            const createInfo: c.VkImageViewCreateInfo = .{
+                .sType = c.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                .image = swapChainImages.items[i],
+                .viewType = c.VK_IMAGE_VIEW_TYPE_2D,
+                .format = swapChainImageFormat,
+
+                .components = .{
+                    .r = c.VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .g = c.VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .b = c.VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .a = c.VK_COMPONENT_SWIZZLE_IDENTITY,
+                },
+
+                .subresourceRange = .{
+                    .aspectMask = c.VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+            };
+
+            if (vkCreateImageView.?(device, &createInfo, null, element) != c.VK_SUCCESS) {
+                std.debug.panic("Failed to create image view {d}\n", .{i});
+            }
+        }
+    }
+
+    fn cleanup() void {
+        for (swapChainImageViews.items) |view| {
+            vkDestroyImageView.?(device, view, null);
+        }
+        swapChainImageViews.deinit();
+        swapChainImages.deinit();
+        vkDestroySwapchainKHR.?(Vk.device, Vk.swapChain, null);
+        vkDestroyDevice.?(Vk.device, null);
+        vkDestroyInstance.?(Vk.instance, null);
+    }
 };
 
 fn cleanup() void {
-    Vk.vkDestroySwapchainKHR.?(Vk.device, Vk.swapChain, null);
-    Vk.vkDestroyDevice.?(Vk.device, null);
-    Vk.vkDestroyInstance.?(Vk.instance, null);
+    Vk.cleanup();
     c.glfwDestroyWindow(window);
     c.glfwTerminate();
 }
