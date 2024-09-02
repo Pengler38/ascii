@@ -1,11 +1,6 @@
 //main.zig
 //Preston Engler
-const c = @cImport({
-    @cDefine("GLFW_INCLUDE_VULKAN", "1");
-    @cInclude("GLFW/glfw3.h");
-    //@cInclude("cimgui.h");
-    //@cInclude("cimgui_impl.h");
-});
+const c = @import("c.zig");
 
 const std = @import("std");
 
@@ -53,6 +48,8 @@ fn initWindow() void {
 
 //Hold vulkan vars and functions in a struct
 pub const Vk = struct {
+    const vkf = @import("vk_function_pointers.zig");
+
     const QueueFamilyIndices = struct {
         graphics: ?u32 = null,
         presentation: ?u32 = null,
@@ -75,37 +72,6 @@ pub const Vk = struct {
             self.presentModes.deinit();
         }
     };
-
-    //Hold Vulkan function pointers in vk variable
-    var vkCreateInstance: c.PFN_vkCreateInstance = undefined;
-    var vkCreateDevice: c.PFN_vkCreateDevice = undefined;
-    var vkDestroyInstance: c.PFN_vkDestroyInstance = undefined;
-    var vkEnumeratePhysicalDevices: c.PFN_vkEnumeratePhysicalDevices = undefined;
-    var vkGetPhysicalDeviceQueueFamilyProperties: c.PFN_vkGetPhysicalDeviceQueueFamilyProperties = undefined;
-    var vkGetPhysicalDeviceProperties: c.PFN_vkGetPhysicalDeviceProperties = undefined;
-    var vkGetPhysicalDeviceFeatures: c.PFN_vkGetPhysicalDeviceFeatures = undefined;
-    var vkDestroyDevice: c.PFN_vkDestroyDevice = undefined;
-    var vkGetDeviceQueue: c.PFN_vkGetDeviceQueue = undefined;
-    var vkGetPhysicalDeviceSurfaceSupportKHR: c.PFN_vkGetPhysicalDeviceSurfaceSupportKHR = undefined;
-    var vkEnumerateDeviceExtensionProperties: c.PFN_vkEnumerateDeviceExtensionProperties = undefined;
-    var vkGetPhysicalDeviceSurfaceCapabilitiesKHR: c.PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR = undefined;
-    var vkGetPhysicalDeviceSurfaceFormatsKHR: c.PFN_vkGetPhysicalDeviceSurfaceFormatsKHR = undefined;
-    var vkGetPhysicalDeviceSurfacePresentModesKHR: c.PFN_vkGetPhysicalDeviceSurfacePresentModesKHR = undefined;
-    var vkCreateSwapchainKHR: c.PFN_vkCreateSwapchainKHR = undefined;
-    var vkDestroySwapchainKHR: c.PFN_vkDestroySwapchainKHR = undefined;
-    var vkGetSwapchainImagesKHR: c.PFN_vkGetSwapchainImagesKHR = undefined;
-    var vkCreateImageView: c.PFN_vkCreateImageView = undefined;
-    var vkDestroyImageView: c.PFN_vkDestroyImageView = undefined;
-    var vkCreateShaderModule: c.PFN_vkCreateShaderModule = undefined;
-    var vkDestroyShaderModule: c.PFN_vkDestroyShaderModule = undefined;
-    var vkCreatePipelineLayout: c.PFN_vkCreatePipelineLayout = undefined;
-    var vkDestroyPipelineLayout: c.PFN_vkDestroyPipelineLayout = undefined;
-    var vkCreateRenderPass: c.PFN_vkCreateRenderPass = undefined;
-    var vkDestroyRenderPass: c.PFN_vkDestroyRenderPass = undefined;
-    var vkCreateGraphicsPipelines: c.PFN_vkCreateGraphicsPipelines = undefined;
-    var vkDestroyPipeline: c.PFN_vkDestroyPipeline = undefined;
-    var vkCreateFramebuffer: c.PFN_vkCreateFramebuffer = undefined;
-    var vkDestroyFramebuffer: c.PFN_vkDestroyFramebuffer = undefined;
 
     var instance: c.VkInstance = undefined;
     var surface: c.VkSurfaceKHR = undefined;
@@ -138,7 +104,6 @@ pub const Vk = struct {
         }
 
         //Create Vulkan instance
-        vkCreateInstance = @ptrCast(c.glfwGetInstanceProcAddress(null, "vkCreateInstance"));
         createInstance();
 
         //Create a GLFW surface linked to the window
@@ -149,34 +114,9 @@ pub const Vk = struct {
         }
 
         //Get the rest of the function pointers
-        vkCreateDevice = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateDevice"));
-        vkDestroyInstance = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyInstance"));
-        vkEnumeratePhysicalDevices = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkEnumeratePhysicalDevices"));
-        vkGetPhysicalDeviceQueueFamilyProperties = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceQueueFamilyProperties"));
-        vkGetPhysicalDeviceFeatures = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceFeatures"));
-        vkGetPhysicalDeviceProperties = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceProperties"));
-        vkDestroyDevice = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyDevice"));
-        vkGetDeviceQueue = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetDeviceQueue"));
-        vkGetPhysicalDeviceSurfaceSupportKHR = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceSurfaceSupportKHR"));
-        vkEnumerateDeviceExtensionProperties = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkEnumerateDeviceExtensionProperties"));
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"));
-        vkGetPhysicalDeviceSurfaceFormatsKHR = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceSurfaceFormatsKHR"));
-        vkGetPhysicalDeviceSurfacePresentModesKHR = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetPhysicalDeviceSurfacePresentModesKHR"));
-        vkCreateSwapchainKHR = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateSwapchainKHR"));
-        vkDestroySwapchainKHR = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroySwapchainKHR"));
-        vkGetSwapchainImagesKHR = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkGetSwapchainImagesKHR"));
-        vkCreateImageView = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateImageView"));
-        vkDestroyImageView = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyImageView"));
-        vkCreateShaderModule = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateShaderModule"));
-        vkDestroyShaderModule = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyShaderModule"));
-        vkCreatePipelineLayout = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreatePipelineLayout"));
-        vkDestroyPipelineLayout = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyPipelineLayout"));
-        vkCreateRenderPass = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateRenderPass"));
-        vkDestroyRenderPass = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyRenderPass"));
-        vkCreateGraphicsPipelines = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateGraphicsPipelines"));
-        vkDestroyPipeline = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyPipeline"));
-        vkCreateFramebuffer = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateFramebuffer"));
-        vkDestroyFramebuffer = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyFramebuffer"));
+        vkf.getVkFunctionPointers(instance) catch {
+            std.debug.panic("Failed to get Vulkan function pointers\n", .{});
+        };
 
         //TODO: Add debug callback and handle Validation Layers
 
@@ -192,8 +132,8 @@ pub const Vk = struct {
         createLogicalDevice(indices.graphics.?);
 
         //Create queues
-        vkGetDeviceQueue.?(device, indices.graphics.?, 0, &graphicsQueue);
-        vkGetDeviceQueue.?(device, indices.presentation.?, 0, &presentQueue);
+        vkf.p.vkGetDeviceQueue.?(device, indices.graphics.?, 0, &graphicsQueue);
+        vkf.p.vkGetDeviceQueue.?(device, indices.presentation.?, 0, &presentQueue);
 
         createSwapChain();
         createImageViews();
@@ -204,6 +144,8 @@ pub const Vk = struct {
 
     //Populates the instance variable
     fn createInstance() void {
+        //Get CreateInstance function pointer
+        const vkCreateInstance: c.PFN_vkCreateInstance = @ptrCast(c.glfwGetInstanceProcAddress(null, "vkCreateInstance"));
 
         //Query required vulkan extensions
         var count: u32 = undefined;
@@ -234,7 +176,7 @@ pub const Vk = struct {
 
     fn pickPhysicalDevice() void {
         var count: u32 = 0;
-        _ = vkEnumeratePhysicalDevices.?(instance, &count, null);
+        _ = vkf.p.vkEnumeratePhysicalDevices.?(instance, &count, null);
         if (count == 0) {
             std.debug.panic("No GPUs with Vulkan support\n", .{});
         } else {
@@ -245,7 +187,7 @@ pub const Vk = struct {
             heapFailure();
         };
         defer std.heap.c_allocator.free(devices);
-        _ = vkEnumeratePhysicalDevices.?(instance, &count, @ptrCast(devices));
+        _ = vkf.p.vkEnumeratePhysicalDevices.?(instance, &count, @ptrCast(devices));
 
         for (devices) |d| {
             if (isDeviceSuitable(d) == true) {
@@ -272,12 +214,12 @@ pub const Vk = struct {
 
     fn checkDeviceExtensionSupport(d: c.VkPhysicalDevice) bool {
         var extensionCount: u32 = undefined;
-        _ = vkEnumerateDeviceExtensionProperties.?(d, null, &extensionCount, null);
+        _ = vkf.p.vkEnumerateDeviceExtensionProperties.?(d, null, &extensionCount, null);
         const extensions = std.heap.c_allocator.alloc(c.VkExtensionProperties, extensionCount) catch {
             heapFailure();
         };
         defer std.heap.c_allocator.free(extensions);
-        _ = vkEnumerateDeviceExtensionProperties.?(d, null, &extensionCount, @ptrCast(extensions));
+        _ = vkf.p.vkEnumerateDeviceExtensionProperties.?(d, null, &extensionCount, @ptrCast(extensions));
 
         var requiredExtensions = std.ArrayList([*:0]const u8).init(std.heap.c_allocator);
         defer requiredExtensions.deinit();
@@ -302,19 +244,19 @@ pub const Vk = struct {
         var ret: QueueFamilyIndices = .{};
 
         var queueFamilyCount: u32 = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties.?(thisDevice, &queueFamilyCount, null);
+        vkf.p.vkGetPhysicalDeviceQueueFamilyProperties.?(thisDevice, &queueFamilyCount, null);
         const queueFamilies = std.heap.c_allocator.alloc(c.VkQueueFamilyProperties, queueFamilyCount) catch {
             heapFailure();
         };
         defer std.heap.c_allocator.free(queueFamilies);
-        vkGetPhysicalDeviceQueueFamilyProperties.?(thisDevice, &queueFamilyCount, @ptrCast(queueFamilies));
+        vkf.p.vkGetPhysicalDeviceQueueFamilyProperties.?(thisDevice, &queueFamilyCount, @ptrCast(queueFamilies));
 
         for (queueFamilies, 0..) |queueFamily, i| {
             if (queueFamily.queueFlags & c.VK_QUEUE_GRAPHICS_BIT > 0) {
                 ret.graphics = @intCast(i);
             }
             var presentSupport: c.VkBool32 = undefined;
-            _ = vkGetPhysicalDeviceSurfaceSupportKHR.?(thisDevice, @intCast(i), surface, &presentSupport);
+            _ = vkf.p.vkGetPhysicalDeviceSurfaceSupportKHR.?(thisDevice, @intCast(i), surface, &presentSupport);
             if (presentSupport == c.VK_TRUE) {
                 ret.presentation = @intCast(i);
             }
@@ -330,24 +272,24 @@ pub const Vk = struct {
 
     fn querySwapChainSupport(d: c.VkPhysicalDevice) SwapChainSupportDetails {
         var details: SwapChainSupportDetails = SwapChainSupportDetails.init();
-        _ = vkGetPhysicalDeviceSurfaceCapabilitiesKHR.?(d, surface, @ptrCast(&details.capabilities));
+        _ = vkf.p.vkGetPhysicalDeviceSurfaceCapabilitiesKHR.?(d, surface, @ptrCast(&details.capabilities));
 
         var formatCount: u32 = undefined;
-        _ = vkGetPhysicalDeviceSurfaceFormatsKHR.?(d, surface, &formatCount, null);
+        _ = vkf.p.vkGetPhysicalDeviceSurfaceFormatsKHR.?(d, surface, &formatCount, null);
         if (formatCount != 0) {
             const newMemory = details.formats.addManyAsSlice(formatCount) catch {
                 heapFailure();
             };
-            _ = vkGetPhysicalDeviceSurfaceFormatsKHR.?(d, surface, &formatCount, @ptrCast(newMemory));
+            _ = vkf.p.vkGetPhysicalDeviceSurfaceFormatsKHR.?(d, surface, &formatCount, @ptrCast(newMemory));
         }
 
         var presentModeCount: u32 = undefined;
-        _ = vkGetPhysicalDeviceSurfacePresentModesKHR.?(d, surface, &presentModeCount, null);
+        _ = vkf.p.vkGetPhysicalDeviceSurfacePresentModesKHR.?(d, surface, &presentModeCount, null);
         if (presentModeCount != 0) {
             const newMemory = details.presentModes.addManyAsSlice(formatCount) catch {
                 heapFailure();
             };
-            _ = vkGetPhysicalDeviceSurfacePresentModesKHR.?(d, surface, &presentModeCount, @ptrCast(newMemory));
+            _ = vkf.p.vkGetPhysicalDeviceSurfacePresentModesKHR.?(d, surface, &presentModeCount, @ptrCast(newMemory));
         }
 
         return details;
@@ -371,7 +313,7 @@ pub const Vk = struct {
             .enabledExtensionCount = deviceExtensions.len,
             .ppEnabledExtensionNames = &deviceExtensions,
         };
-        if (vkCreateDevice.?(physicalDevice, &createInfo, null, @ptrCast(&device)) != c.VK_SUCCESS) {
+        if (vkf.p.vkCreateDevice.?(physicalDevice, &createInfo, null, @ptrCast(&device)) != c.VK_SUCCESS) {
             std.debug.panic("Failed to create logical device\n", .{});
         }
     }
@@ -422,7 +364,7 @@ pub const Vk = struct {
             createInfo.pQueueFamilyIndices = &[_]u32{ indices.graphics.?, indices.presentation.? };
         }
 
-        if (vkCreateSwapchainKHR.?(device, &createInfo, null, &swapChain) != c.VK_SUCCESS) {
+        if (vkf.p.vkCreateSwapchainKHR.?(device, &createInfo, null, &swapChain) != c.VK_SUCCESS) {
             std.debug.panic("Failed to create swap chain\n", .{});
         }
 
@@ -432,11 +374,11 @@ pub const Vk = struct {
 
         //Save the handles of the swapchain images
         swapChainImages = std.ArrayList(c.VkImage).init(std.heap.c_allocator);
-        _ = vkGetSwapchainImagesKHR.?(device, swapChain, &imageCount, null);
+        _ = vkf.p.vkGetSwapchainImagesKHR.?(device, swapChain, &imageCount, null);
         const newMemory = swapChainImages.addManyAsSlice(imageCount) catch {
             heapFailure();
         };
-        _ = vkGetSwapchainImagesKHR.?(device, swapChain, &imageCount, @ptrCast(newMemory));
+        _ = vkf.p.vkGetSwapchainImagesKHR.?(device, swapChain, &imageCount, @ptrCast(newMemory));
     }
 
     fn chooseSwapSurfaceFormat(
@@ -504,7 +446,7 @@ pub const Vk = struct {
                 },
             };
 
-            if (vkCreateImageView.?(device, &createInfo, null, element) != c.VK_SUCCESS) {
+            if (vkf.p.vkCreateImageView.?(device, &createInfo, null, element) != c.VK_SUCCESS) {
                 std.debug.panic("Failed to create image view {d}\n", .{i});
             }
         }
@@ -541,7 +483,7 @@ pub const Vk = struct {
             .pSubpasses = &subpass,
         };
 
-        if (vkCreateRenderPass.?(device, &render_pass_info, null, &renderPass) != c.VK_SUCCESS) {
+        if (vkf.p.vkCreateRenderPass.?(device, &render_pass_info, null, &renderPass) != c.VK_SUCCESS) {
             std.debug.panic("Failed to create render pass\n", .{});
         }
     }
@@ -551,9 +493,9 @@ pub const Vk = struct {
         const frag_shader_code: [:0]align(4) const u8 = @alignCast(@embedFile("shaders/frag.spv"));
 
         const vert_shader_module = createShaderModule(vert_shader_code);
-        defer vkDestroyShaderModule.?(device, vert_shader_module, null);
+        defer vkf.p.vkDestroyShaderModule.?(device, vert_shader_module, null);
         const frag_shader_module = createShaderModule(frag_shader_code);
-        defer vkDestroyShaderModule.?(device, frag_shader_module, null);
+        defer vkf.p.vkDestroyShaderModule.?(device, frag_shader_module, null);
 
         const vert_shader_stage_info: c.VkPipelineShaderStageCreateInfo = .{
             .sType = c.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -699,7 +641,7 @@ pub const Vk = struct {
             .pPushConstantRanges = null,
         };
 
-        if (vkCreatePipelineLayout.?(device, &pipeline_layout_info, null, &pipelineLayout) != c.VK_SUCCESS) {
+        if (vkf.p.vkCreatePipelineLayout.?(device, &pipeline_layout_info, null, &pipelineLayout) != c.VK_SUCCESS) {
             std.debug.panic("Failed to create pipeline layout\n", .{});
         }
 
@@ -725,7 +667,7 @@ pub const Vk = struct {
             .basePipelineIndex = -1,
         };
 
-        if (vkCreateGraphicsPipelines.?(device, null, 1, &pipeline_info, null, &graphicsPipeline) != c.VK_SUCCESS) {
+        if (vkf.p.vkCreateGraphicsPipelines.?(device, null, 1, &pipeline_info, null, &graphicsPipeline) != c.VK_SUCCESS) {
             std.debug.panic("Failed to create graphics pipeline\n", .{});
         }
     }
@@ -738,7 +680,7 @@ pub const Vk = struct {
         };
 
         var shader_module: c.VkShaderModule = undefined;
-        if (vkCreateShaderModule.?(device, &createInfo, null, &shader_module) != c.VK_SUCCESS) {
+        if (vkf.p.vkCreateShaderModule.?(device, &createInfo, null, &shader_module) != c.VK_SUCCESS) {
             std.debug.panic("Failed to create shader module\n", .{});
         }
 
@@ -765,7 +707,7 @@ pub const Vk = struct {
                 .layers = 1,
             };
 
-            if (vkCreateFramebuffer.?(device, &framebuffer_info, null, framebuffer) != c.VK_SUCCESS) {
+            if (vkf.p.vkCreateFramebuffer.?(device, &framebuffer_info, null, framebuffer) != c.VK_SUCCESS) {
                 std.debug.panic("Failed to create framebuffer\n", .{});
             }
         }
@@ -773,20 +715,20 @@ pub const Vk = struct {
 
     fn cleanup() void {
         for (swapChainFramebuffers.items) |framebuffer| {
-            vkDestroyFramebuffer.?(device, framebuffer, null);
+            vkf.p.vkDestroyFramebuffer.?(device, framebuffer, null);
         }
         swapChainFramebuffers.deinit();
-        vkDestroyPipeline.?(device, graphicsPipeline, null);
-        vkDestroyPipelineLayout.?(device, pipelineLayout, null);
-        vkDestroyPipelineLayout.?(device, pipelineLayout, null);
+        vkf.p.vkDestroyPipeline.?(device, graphicsPipeline, null);
+        vkf.p.vkDestroyPipelineLayout.?(device, pipelineLayout, null);
+        vkf.p.vkDestroyPipelineLayout.?(device, pipelineLayout, null);
         for (swapChainImageViews.items) |view| {
-            vkDestroyImageView.?(device, view, null);
+            vkf.p.vkDestroyImageView.?(device, view, null);
         }
         swapChainImageViews.deinit();
         swapChainImages.deinit();
-        vkDestroySwapchainKHR.?(Vk.device, Vk.swapChain, null);
-        vkDestroyDevice.?(Vk.device, null);
-        vkDestroyInstance.?(Vk.instance, null);
+        vkf.p.vkDestroySwapchainKHR.?(Vk.device, Vk.swapChain, null);
+        vkf.p.vkDestroyDevice.?(Vk.device, null);
+        vkf.p.vkDestroyInstance.?(Vk.instance, null);
     }
 };
 
