@@ -550,8 +550,8 @@ pub const Vk = struct {
     }
 
     fn createGraphicsPipeline() void {
-        const vert_shader_code: *const [:0]u32 = @alignCast(@ptrCast(@embedFile("shaders/vert.spv")));
-        const frag_shader_code: *const [:0]u32 = @alignCast(@ptrCast(@embedFile("shaders/frag.spv")));
+        const vert_shader_code: [:0]align(4) const u8 = @alignCast(@embedFile("shaders/vert.spv"));
+        const frag_shader_code: [:0]align(4) const u8 = @alignCast(@embedFile("shaders/frag.spv"));
 
         const vert_shader_module = createShaderModule(vert_shader_code);
         defer vkDestroyShaderModule.?(device, vert_shader_module, null);
@@ -733,11 +733,11 @@ pub const Vk = struct {
         }
     }
 
-    fn createShaderModule(code: *const [:0]const u32) c.VkShaderModule {
+    fn createShaderModule(code: [:0]align(4) const u8) c.VkShaderModule {
         const createInfo: c.VkShaderModuleCreateInfo = .{
             .sType = c.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = code.len,
-            .pCode = code.*,
+            .pCode = @ptrCast(code),
         };
 
         var shader_module: c.VkShaderModule = undefined;
