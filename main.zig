@@ -104,6 +104,8 @@ pub const Vk = struct {
     var vkDestroyRenderPass: c.PFN_vkDestroyRenderPass = undefined;
     var vkCreateGraphicsPipelines: c.PFN_vkCreateGraphicsPipelines = undefined;
     var vkDestroyPipeline: c.PFN_vkDestroyPipeline = undefined;
+    var vkCreateFramebuffer: c.PFN_vkCreateFramebuffer = undefined;
+    var vkDestroyFramebuffer: c.PFN_vkDestroyFramebuffer = undefined;
 
     var instance: c.VkInstance = undefined;
     var surface: c.VkSurfaceKHR = undefined;
@@ -123,6 +125,7 @@ pub const Vk = struct {
     var pipelineLayout: c.VkPipelineLayout = undefined;
 
     var graphicsPipeline: c.VkPipeline = undefined;
+    var swapChainFramebuffers: std.ArrayList(c.VkFramebuffer) = undefined;
 
     const deviceExtensions = [_][*:0]const u8{
         c.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -134,15 +137,11 @@ pub const Vk = struct {
             std.debug.panic("Vulkan is not supported\n", .{});
         }
 
-        //Get function pointers necessary to create instance
-        vkCreateInstance = @ptrCast(c.glfwGetInstanceProcAddress(null, "vkCreateInstance"));
-
         //Create Vulkan instance
+        vkCreateInstance = @ptrCast(c.glfwGetInstanceProcAddress(null, "vkCreateInstance"));
         createInstance();
 
         //Create a GLFW surface linked to the window
-        //TODO: check what the parameter VkAllocationCallbacks allocator is,
-        //currently null (using the default allocator)
         if (c.glfwCreateWindowSurface(instance, window, null, &surface) != c.VK_SUCCESS) {
             std.debug.panic("Failed to create vulkan window surface\n", .{});
         } else {
@@ -176,6 +175,8 @@ pub const Vk = struct {
         vkDestroyRenderPass = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyRenderPass"));
         vkCreateGraphicsPipelines = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateGraphicsPipelines"));
         vkDestroyPipeline = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyPipeline"));
+        vkCreateFramebuffer = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkCreateFramebuffer"));
+        vkDestroyFramebuffer = @ptrCast(c.glfwGetInstanceProcAddress(instance, "vkDestroyFramebuffer"));
 
         //TODO: Add debug callback and handle Validation Layers
 
@@ -188,21 +189,17 @@ pub const Vk = struct {
             std.debug.panic("GLFW Presentation not supported\n", .{});
         }
 
-        //Create a logical device
         createLogicalDevice(indices.graphics.?);
 
         //Create queues
         vkGetDeviceQueue.?(device, indices.graphics.?, 0, &graphicsQueue);
         vkGetDeviceQueue.?(device, indices.presentation.?, 0, &presentQueue);
 
-        //Create Swap Chain
         createSwapChain();
-
         createImageViews();
-
         createRenderPass();
-
         createGraphicsPipeline();
+        createFramebuffers();
     }
 
     //Populates the instance variable
@@ -748,7 +745,37 @@ pub const Vk = struct {
         return shader_module;
     }
 
+    fn createFramebuffers() void {
+        swapChainFramebuffers = std.ArrayList(c.VkFramebuffer).init(std.heap.c_allocator);
+        swapChainFramebuffers.resize(swapChainImageViews.items.len) catch {
+            heapFailure();
+        };
+
+        for (swapChainImageViews.items, swapChainFramebuffers.items) |image_view, *framebuffer| {
+            const attachments = [_]c.VkImageView{
+                image_view,
+            };
+            const framebuffer_info: c.VkFramebufferCreateInfo = .{
+                .sType = c.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+                .renderPass = renderPass,
+                .attachmentCount = 1,
+                .pAttachments = &attachments,
+                .width = swapChainExtent.width,
+                .height = swapChainExtent.height,
+                .layers = 1,
+            };
+
+            if (vkCreateFramebuffer.?(device, &framebuffer_info, null, framebuffer) != c.VK_SUCCESS) {
+                std.debug.panic("Failed to create framebuffer\n", .{});
+            }
+        }
+    }
+
     fn cleanup() void {
+        for (swapChainFramebuffers.items) |framebuffer| {
+            vkDestroyFramebuffer.?(device, framebuffer, null);
+        }
+        swapChainFramebuffers.deinit();
         vkDestroyPipeline.?(device, graphicsPipeline, null);
         vkDestroyPipelineLayout.?(device, pipelineLayout, null);
         vkDestroyPipelineLayout.?(device, pipelineLayout, null);
