@@ -21,6 +21,7 @@ pub fn main() !u8 {
         loop();
     }
 
+    vk.waitIdle();
     cleanup();
 
     return 0;
@@ -82,4 +83,5 @@ inline fn loop() void {
     }
 
     c.glfwPollEvents();
+    vk.drawFrame();
 }

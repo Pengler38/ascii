@@ -33,6 +33,28 @@ pub const p = struct {
     pub var vkDestroyPipeline: c.PFN_vkDestroyPipeline = null;
     pub var vkCreateFramebuffer: c.PFN_vkCreateFramebuffer = null;
     pub var vkDestroyFramebuffer: c.PFN_vkDestroyFramebuffer = null;
+    pub var vkCreateCommandPool: c.PFN_vkCreateCommandPool = null;
+    pub var vkDestroyCommandPool: c.PFN_vkDestroyCommandPool = null;
+    pub var vkAllocateCommandBuffers: c.PFN_vkAllocateCommandBuffers = null;
+    pub var vkBeginCommandBuffer: c.PFN_vkBeginCommandBuffer = null;
+    pub var vkCmdBeginRenderPass: c.PFN_vkCmdBeginRenderPass = null;
+    pub var vkCmdBindPipeline: c.PFN_vkCmdBindPipeline = null;
+    pub var vkCmdSetViewport: c.PFN_vkCmdSetViewport = null;
+    pub var vkCmdSetScissor: c.PFN_vkCmdSetScissor = null;
+    pub var vkCmdDraw: c.PFN_vkCmdDraw = null;
+    pub var vkCreateSemaphore: c.PFN_vkCreateSemaphore = null;
+    pub var vkDestroySemaphore: c.PFN_vkDestroySemaphore = null;
+    pub var vkCreateFence: c.PFN_vkCreateFence = null;
+    pub var vkDestroyFence: c.PFN_vkDestroyFence = null;
+    pub var vkWaitForFences: c.PFN_vkWaitForFences = null;
+    pub var vkResetFences: c.PFN_vkResetFences = null;
+    pub var vkAcquireNextImageKHR: c.PFN_vkAcquireNextImageKHR = null;
+    pub var vkResetCommandBuffer: c.PFN_vkResetCommandBuffer = null;
+    pub var vkQueueSubmit: c.PFN_vkQueueSubmit = null;
+    pub var vkQueuePresentKHR: c.PFN_vkQueuePresentKHR = null;
+    pub var vkDeviceWaitIdle: c.PFN_vkDeviceWaitIdle = null;
+    pub var vkCmdEndRenderPass: c.PFN_vkCmdEndRenderPass = null;
+    pub var vkEndCommandBuffer: c.PFN_vkEndCommandBuffer = null;
 };
 
 pub fn getVkFunctionPointers(instance: c.VkInstance) !void {
