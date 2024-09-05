@@ -843,7 +843,6 @@ pub fn cleanup() void {
     swapChainFramebuffers.deinit();
     vkf.p.vkDestroyPipeline.?(device, graphicsPipeline, null);
     vkf.p.vkDestroyPipelineLayout.?(device, pipelineLayout, null);
-    vkf.p.vkDestroyPipelineLayout.?(device, pipelineLayout, null);
     for (swapChainImageViews.items) |view| {
         vkf.p.vkDestroyImageView.?(device, view, null);
     }
@@ -854,6 +853,7 @@ pub fn cleanup() void {
     vkf.p.vkDestroyInstance.?(instance, null);
 }
 
+//Utility function to check the equality of two null terminated sentinel strings
 fn strEql(a: [*:0]const u8, b: [*:0]const u8) bool {
     var i: u32 = 0;
     while (a[i] != 0 and b[i] != 0) {
