@@ -53,6 +53,19 @@ pub fn build(b: *std.Build) !void {
 
     b.installArtifact(exe);
 
+    //Step to compile shaders
+    //The output file is added in addArgs to output to the shaders directory to then be embedded in vk.zig
+    //Otherwise if put in addOuptutFileArg it would output in the zig cache
+    const shader_step = b.addSystemCommand(&.{"glslc"});
+    shader_step.addFileArg(b.path("shaders/tri.frag"));
+    shader_step.addArgs(&.{ "-o", "shaders/frag.spv" });
+    b.getInstallStep().dependOn(&shader_step.step);
+
+    const shader_step_2 = b.addSystemCommand(&.{"glslc"});
+    shader_step_2.addFileArg(b.path("shaders/tri.vert"));
+    shader_step_2.addArgs(&.{ "-o", "shaders/vert.spv" });
+    b.getInstallStep().dependOn(&shader_step_2.step);
+
     const run_step = b.step("run", "Run the program");
     run_step.dependOn(&run_exe.step);
 }
