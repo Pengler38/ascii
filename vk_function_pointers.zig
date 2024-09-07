@@ -55,6 +55,16 @@ pub const p = struct {
     pub var vkDeviceWaitIdle: c.PFN_vkDeviceWaitIdle = null;
     pub var vkCmdEndRenderPass: c.PFN_vkCmdEndRenderPass = null;
     pub var vkEndCommandBuffer: c.PFN_vkEndCommandBuffer = null;
+    pub var vkCreateBuffer: c.PFN_vkCreateBuffer = null;
+    pub var vkDestroyBuffer: c.PFN_vkDestroyBuffer = null;
+    pub var vkGetBufferMemoryRequirements: c.PFN_vkGetBufferMemoryRequirements = null;
+    pub var vkGetPhysicalDeviceMemoryProperties: c.PFN_vkGetPhysicalDeviceMemoryProperties = null;
+    pub var vkAllocateMemory: c.PFN_vkAllocateMemory = null;
+    pub var vkBindBufferMemory: c.PFN_vkBindBufferMemory = null;
+    pub var vkFreeMemory: c.PFN_vkFreeMemory = null;
+    pub var vkMapMemory: c.PFN_vkMapMemory = null;
+    pub var vkUnmapMemory: c.PFN_vkUnmapMemory = null;
+    pub var vkCmdBindVertexBuffers: c.PFN_vkCmdBindVertexBuffers = null;
 };
 
 pub fn getVkFunctionPointers(instance: c.VkInstance) !void {

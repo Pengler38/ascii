@@ -29,6 +29,44 @@ const SwapChainSupportDetails = struct {
     }
 };
 
+const Vertex = extern struct {
+    pos: @Vector(2, f32),
+    color: @Vector(3, f32),
+
+    pub fn getBindingDescription() c.VkVertexInputBindingDescription {
+        const bindingDescription: c.VkVertexInputBindingDescription = .{
+            .binding = 0,
+            .stride = @sizeOf(Vertex),
+            .inputRate = c.VK_VERTEX_INPUT_RATE_VERTEX,
+        };
+
+        return bindingDescription;
+    }
+
+    pub fn getAttributeDescriptions() [2]c.VkVertexInputAttributeDescription {
+        return [2]c.VkVertexInputAttributeDescription{
+            .{
+                .binding = 0,
+                .location = 0,
+                .format = c.VK_FORMAT_R32G32_SFLOAT,
+                .offset = @offsetOf(Vertex, "pos"),
+            },
+            .{
+                .binding = 0,
+                .location = 1,
+                .format = c.VK_FORMAT_R32G32B32_SFLOAT,
+                .offset = @offsetOf(Vertex, "color"),
+            },
+        };
+    }
+};
+
+const vertices = [_]Vertex{
+    .{ .pos = .{ 0.0, -0.5 }, .color = .{ 1.0, 0.0, 0.0 } },
+    .{ .pos = .{ 0.5, 0.5 }, .color = .{ 0.0, 1.0, 0.0 } },
+    .{ .pos = .{ -0.5, 0.5 }, .color = .{ 0.0, 0.0, 1.0 } },
+};
+
 var window: *c.GLFWwindow = undefined;
 
 var instance: c.VkInstance = undefined;
@@ -53,6 +91,9 @@ var swapChainFramebuffers: std.ArrayList(c.VkFramebuffer) = undefined;
 
 var commandPool: c.VkCommandPool = undefined;
 var commandBuffers = std.ArrayList(c.VkCommandBuffer).init(std.heap.c_allocator);
+
+var vertexBuffer: c.VkBuffer = undefined;
+var vertexBufferMemory: c.VkDeviceMemory = undefined;
 
 var imageAvailableSemaphores = std.ArrayList(c.VkSemaphore).init(std.heap.c_allocator);
 var renderFinishedSemaphores = std.ArrayList(c.VkSemaphore).init(std.heap.c_allocator);
@@ -112,6 +153,7 @@ pub fn initVulkan(w: *c.GLFWwindow) void {
     createGraphicsPipeline();
     createFramebuffers();
     createCommandPool();
+    createVertexBuffer();
     createCommandBuffers();
     createSyncObjects();
 }
@@ -514,12 +556,14 @@ fn createGraphicsPipeline() void {
     };
 
     //vertext input setup
+    const binding_description = Vertex.getBindingDescription();
+    const attribute_descriptions = Vertex.getAttributeDescriptions();
     const vertex_input_info: c.VkPipelineVertexInputStateCreateInfo = .{
         .sType = c.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = 0,
-        .pVertexBindingDescriptions = null,
-        .vertexAttributeDescriptionCount = 0,
-        .pVertexAttributeDescriptions = null,
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &binding_description,
+        .vertexAttributeDescriptionCount = @intCast(attribute_descriptions.len),
+        .pVertexAttributeDescriptions = &attribute_descriptions,
     };
 
     //input assembly setup
@@ -711,6 +755,57 @@ fn createCommandPool() void {
     }
 }
 
+fn createVertexBuffer() void {
+    const buffer_info: c.VkBufferCreateInfo = .{
+        .sType = c.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = @sizeOf(@TypeOf(vertices)),
+        .usage = c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .sharingMode = c.VK_SHARING_MODE_EXCLUSIVE,
+    };
+
+    if (vkf.p.vkCreateBuffer.?(device, &buffer_info, null, &vertexBuffer) != c.VK_SUCCESS) {
+        std.debug.panic("Failed to create vertex buffer\n", .{});
+    }
+
+    var mem_requirements: c.VkMemoryRequirements = undefined;
+    vkf.p.vkGetBufferMemoryRequirements.?(device, vertexBuffer, &mem_requirements);
+
+    const alloc_info: c.VkMemoryAllocateInfo = .{
+        .sType = c.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = mem_requirements.size,
+        .memoryTypeIndex = findMemoryType(
+            mem_requirements.memoryTypeBits,
+            c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        ),
+    };
+
+    if (vkf.p.vkAllocateMemory.?(device, &alloc_info, null, &vertexBufferMemory) != c.VK_SUCCESS) {
+        std.debug.panic("Failed to allocate vertex buffer memory\n", .{});
+    }
+
+    _ = vkf.p.vkBindBufferMemory.?(device, vertexBuffer, vertexBufferMemory, 0);
+
+    var data: ?*align(@alignOf(Vertex)) anyopaque = undefined;
+    _ = vkf.p.vkMapMemory.?(device, vertexBufferMemory, 0, buffer_info.size, 0, &data);
+    @memcpy(@as([*]Vertex, @ptrCast(data.?)), &vertices);
+    vkf.p.vkUnmapMemory.?(device, vertexBufferMemory);
+}
+
+fn findMemoryType(type_filter: u32, properties: c.VkMemoryPropertyFlags) u32 {
+    var mem_properties: c.VkPhysicalDeviceMemoryProperties = undefined;
+    vkf.p.vkGetPhysicalDeviceMemoryProperties.?(physicalDevice, &mem_properties);
+
+    for (0..mem_properties.memoryTypeCount) |i| {
+        if ((type_filter & (@as(u32, 1) << @as(u5, @intCast(i))) > 0) and
+            mem_properties.memoryTypes[i].propertyFlags & properties == properties)
+        {
+            return @intCast(i);
+        }
+    }
+
+    std.debug.panic("Failed to find suitable memory type\n", .{});
+}
+
 fn createCommandBuffers() void {
     commandBuffers.resize(max_frames_in_flight) catch {
         heapFailure();
@@ -772,7 +867,11 @@ fn recordCommandBuffer(local_command_buffer: c.VkCommandBuffer, image_index: u32
     };
     vkf.p.vkCmdSetScissor.?(local_command_buffer, 0, 1, &scissor);
 
-    vkf.p.vkCmdDraw.?(local_command_buffer, 3, 1, 0, 0);
+    const vertexBuffers = [_]c.VkBuffer{vertexBuffer};
+    const offsets = [_]c.VkDeviceSize{0};
+    vkf.p.vkCmdBindVertexBuffers.?(local_command_buffer, 0, 1, &vertexBuffers, &offsets);
+
+    vkf.p.vkCmdDraw.?(local_command_buffer, @intCast(vertices.len), 1, 0, 0);
 
     vkf.p.vkCmdEndRenderPass.?(local_command_buffer);
     if (vkf.p.vkEndCommandBuffer.?(local_command_buffer) != c.VK_SUCCESS) {
@@ -900,6 +999,9 @@ pub fn cleanup() void {
     swapChainFramebuffers.deinit();
     swapChainImageViews.deinit();
     swapChainImages.deinit();
+
+    vkf.p.vkDestroyBuffer.?(device, vertexBuffer, null);
+    vkf.p.vkFreeMemory.?(device, vertexBufferMemory, null);
 
     vkf.p.vkDestroyDevice.?(device, null);
     vkf.p.vkDestroyInstance.?(instance, null);
