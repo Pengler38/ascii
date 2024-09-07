@@ -52,15 +52,20 @@ var graphicsPipeline: c.VkPipeline = undefined;
 var swapChainFramebuffers: std.ArrayList(c.VkFramebuffer) = undefined;
 
 var commandPool: c.VkCommandPool = undefined;
-var commandBuffer: c.VkCommandBuffer = undefined;
+var commandBuffers = std.ArrayList(c.VkCommandBuffer).init(std.heap.c_allocator);
 
-var imageAvailableSemaphore: c.VkSemaphore = undefined;
-var renderFinishedSemaphore: c.VkSemaphore = undefined;
-var inFlightFence: c.VkFence = undefined;
+var imageAvailableSemaphores = std.ArrayList(c.VkSemaphore).init(std.heap.c_allocator);
+var renderFinishedSemaphores = std.ArrayList(c.VkSemaphore).init(std.heap.c_allocator);
+var inFlightFences = std.ArrayList(c.VkFence).init(std.heap.c_allocator);
+
+pub var framebufferResized = false;
 
 const deviceExtensions = [_][*:0]const u8{
     c.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 };
+
+const max_frames_in_flight = 2;
+var current_frame: u32 = 0;
 
 pub fn initVulkan(w: *c.GLFWwindow) void {
     window = w;
@@ -107,7 +112,7 @@ pub fn initVulkan(w: *c.GLFWwindow) void {
     createGraphicsPipeline();
     createFramebuffers();
     createCommandPool();
-    createCommandBuffer();
+    createCommandBuffers();
     createSyncObjects();
 }
 
@@ -706,14 +711,17 @@ fn createCommandPool() void {
     }
 }
 
-fn createCommandBuffer() void {
+fn createCommandBuffers() void {
+    commandBuffers.resize(max_frames_in_flight) catch {
+        heapFailure();
+    };
     const alloc_info: c.VkCommandBufferAllocateInfo = .{
         .sType = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = commandPool,
         .level = c.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
+        .commandBufferCount = @intCast(commandBuffers.items.len),
     };
-    if (vkf.p.vkAllocateCommandBuffers.?(device, &alloc_info, &commandBuffer) != c.VK_SUCCESS) {
+    if (vkf.p.vkAllocateCommandBuffers.?(device, &alloc_info, @ptrCast(commandBuffers.items)) != c.VK_SUCCESS) {
         std.debug.panic("Failed to allocate command buffers\n", .{});
     }
 }
@@ -773,6 +781,16 @@ fn recordCommandBuffer(local_command_buffer: c.VkCommandBuffer, image_index: u32
 }
 
 fn createSyncObjects() void {
+    imageAvailableSemaphores.resize(max_frames_in_flight) catch {
+        heapFailure();
+    };
+    renderFinishedSemaphores.resize(max_frames_in_flight) catch {
+        heapFailure();
+    };
+    inFlightFences.resize(max_frames_in_flight) catch {
+        heapFailure();
+    };
+
     const semaphore_info: c.VkSemaphoreCreateInfo = .{
         .sType = c.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
     };
@@ -780,52 +798,88 @@ fn createSyncObjects() void {
         .sType = c.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .flags = c.VK_FENCE_CREATE_SIGNALED_BIT,
     };
-    if (vkf.p.vkCreateSemaphore.?(device, &semaphore_info, null, &imageAvailableSemaphore) != c.VK_SUCCESS or
-        vkf.p.vkCreateSemaphore.?(device, &semaphore_info, null, &renderFinishedSemaphore) != c.VK_SUCCESS or
-        vkf.p.vkCreateFence.?(device, &fence_info, null, &inFlightFence) != c.VK_SUCCESS)
-    {
-        std.debug.panic("Failed to create semaphores\n", .{});
+    for (0..max_frames_in_flight) |i| {
+        if (vkf.p.vkCreateSemaphore.?(device, &semaphore_info, null, &imageAvailableSemaphores.items[i]) != c.VK_SUCCESS or
+            vkf.p.vkCreateSemaphore.?(device, &semaphore_info, null, &renderFinishedSemaphores.items[i]) != c.VK_SUCCESS or
+            vkf.p.vkCreateFence.?(device, &fence_info, null, &inFlightFences.items[i]) != c.VK_SUCCESS)
+        {
+            std.debug.panic("Failed to create semaphores\n", .{});
+        }
     }
 }
 
 pub fn drawFrame() void {
-    _ = vkf.p.vkWaitForFences.?(device, 1, &inFlightFence, c.VK_TRUE, std.math.maxInt(u64));
-    _ = vkf.p.vkResetFences.?(device, 1, &inFlightFence);
+    _ = vkf.p.vkWaitForFences.?(device, 1, &inFlightFences.items[current_frame], c.VK_TRUE, std.math.maxInt(u64));
 
     var image_index: u32 = undefined;
-    _ = vkf.p.vkAcquireNextImageKHR.?(device, swapChain, std.math.maxInt(u64), imageAvailableSemaphore, null, &image_index);
+    const acquire_result = vkf.p.vkAcquireNextImageKHR.?(device, swapChain, std.math.maxInt(u64), imageAvailableSemaphores.items[current_frame], null, &image_index);
+    if (acquire_result == c.VK_ERROR_OUT_OF_DATE_KHR) {
+        recreateSwapChain();
+        return;
+    } else if (acquire_result != c.VK_SUCCESS and acquire_result != c.VK_SUBOPTIMAL_KHR) {
+        std.debug.panic("Failed to acquire swap chain image\n", .{});
+    }
 
-    _ = vkf.p.vkResetCommandBuffer.?(commandBuffer, 0);
+    //Only reset the fences if we are submitting work (we pass the early erturn from VK_ERROR_OUT_OF_DATE_KHR)
+    _ = vkf.p.vkResetFences.?(device, 1, &inFlightFences.items[current_frame]);
 
-    recordCommandBuffer(commandBuffer, image_index);
+    _ = vkf.p.vkResetCommandBuffer.?(commandBuffers.items[current_frame], 0);
+
+    recordCommandBuffer(commandBuffers.items[current_frame], image_index);
 
     const submit_info: c.VkSubmitInfo = .{
         .sType = c.VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &[_]c.VkSemaphore{imageAvailableSemaphore},
+        .pWaitSemaphores = &[_]c.VkSemaphore{imageAvailableSemaphores.items[current_frame]},
         .pWaitDstStageMask = &[_]u32{c.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
 
         .commandBufferCount = 1,
-        .pCommandBuffers = &commandBuffer,
+        .pCommandBuffers = &commandBuffers.items[current_frame],
         .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &[_]c.VkSemaphore{renderFinishedSemaphore},
+        .pSignalSemaphores = &[_]c.VkSemaphore{renderFinishedSemaphores.items[current_frame]},
     };
 
-    if (vkf.p.vkQueueSubmit.?(graphicsQueue, 1, &submit_info, inFlightFence) != c.VK_SUCCESS) {
+    if (vkf.p.vkQueueSubmit.?(graphicsQueue, 1, &submit_info, inFlightFences.items[current_frame]) != c.VK_SUCCESS) {
         std.debug.panic("Failed to submit draw command buffer\n", .{});
     }
 
     const present_info: c.VkPresentInfoKHR = .{
         .sType = c.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &[_]c.VkSemaphore{renderFinishedSemaphore},
+        .pWaitSemaphores = &[_]c.VkSemaphore{renderFinishedSemaphores.items[current_frame]},
         .swapchainCount = 1,
         .pSwapchains = &[_]c.VkSwapchainKHR{swapChain},
         .pImageIndices = &image_index,
         .pResults = null,
     };
 
-    _ = vkf.p.vkQueuePresentKHR.?(presentQueue, &present_info);
+    const present_result = vkf.p.vkQueuePresentKHR.?(presentQueue, &present_info);
+    if (present_result == c.VK_ERROR_OUT_OF_DATE_KHR or present_result == c.VK_SUBOPTIMAL_KHR or framebufferResized == true) {
+        framebufferResized = false;
+        recreateSwapChain();
+    } else if (present_result != c.VK_SUCCESS) {
+        std.debug.panic("Failed to present swap chain image\n", .{});
+    }
+
+    //Switch to next frame
+    current_frame = (current_frame + 1) % max_frames_in_flight;
+}
+
+fn recreateSwapChain() void {
+    var width: c_int = 0;
+    var height: c_int = 0;
+    c.glfwGetFramebufferSize(window, &width, &height);
+    while (width == 0 or height == 0) {
+        c.glfwGetFramebufferSize(window, &width, &height);
+        c.glfwWaitEvents();
+    }
+    _ = vkf.p.vkDeviceWaitIdle.?(device);
+
+    cleanupSwapChain();
+
+    createSwapChain();
+    createImageViews();
+    createFramebuffers();
 }
 
 pub fn waitIdle() void {
@@ -833,24 +887,34 @@ pub fn waitIdle() void {
 }
 
 pub fn cleanup() void {
-    vkf.p.vkDestroySemaphore.?(device, imageAvailableSemaphore, null);
-    vkf.p.vkDestroySemaphore.?(device, renderFinishedSemaphore, null);
-    vkf.p.vkDestroyFence.?(device, inFlightFence, null);
+    for (0..max_frames_in_flight) |i| {
+        vkf.p.vkDestroySemaphore.?(device, imageAvailableSemaphores.items[i], null);
+        vkf.p.vkDestroySemaphore.?(device, renderFinishedSemaphores.items[i], null);
+        vkf.p.vkDestroyFence.?(device, inFlightFences.items[i], null);
+    }
     vkf.p.vkDestroyCommandPool.?(device, commandPool, null);
+    vkf.p.vkDestroyPipeline.?(device, graphicsPipeline, null);
+    vkf.p.vkDestroyPipelineLayout.?(device, pipelineLayout, null);
+
+    cleanupSwapChain();
+    swapChainFramebuffers.deinit();
+    swapChainImageViews.deinit();
+    swapChainImages.deinit();
+
+    vkf.p.vkDestroyDevice.?(device, null);
+    vkf.p.vkDestroyInstance.?(instance, null);
+}
+
+fn cleanupSwapChain() void {
     for (swapChainFramebuffers.items) |framebuffer| {
         vkf.p.vkDestroyFramebuffer.?(device, framebuffer, null);
     }
-    swapChainFramebuffers.deinit();
-    vkf.p.vkDestroyPipeline.?(device, graphicsPipeline, null);
-    vkf.p.vkDestroyPipelineLayout.?(device, pipelineLayout, null);
+
     for (swapChainImageViews.items) |view| {
         vkf.p.vkDestroyImageView.?(device, view, null);
     }
-    swapChainImageViews.deinit();
-    swapChainImages.deinit();
+
     vkf.p.vkDestroySwapchainKHR.?(device, swapChain, null);
-    vkf.p.vkDestroyDevice.?(device, null);
-    vkf.p.vkDestroyInstance.?(instance, null);
 }
 
 //Utility function to check the equality of two null terminated sentinel strings

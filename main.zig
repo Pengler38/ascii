@@ -41,9 +41,10 @@ fn initWindow() void {
 
     //Create window
     c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
-    c.glfwWindowHint(c.GLFW_RESIZABLE, c.GLFW_FALSE);
+    //c.glfwWindowHint(c.GLFW_RESIZABLE, c.GLFW_FALSE);
     window = c.glfwCreateWindow(WIDTH, HEIGHT, "Test", null, null) orelse
         std.debug.panic("Failed to create window\n", .{});
+    _ = c.glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 
     //Add keypress handling function
     _ = c.glfwSetKeyCallback(window, key_callback);
@@ -53,6 +54,13 @@ fn cleanup() void {
     vk.cleanup();
     c.glfwDestroyWindow(window);
     c.glfwTerminate();
+}
+
+export fn framebufferResizeCallback(w: ?*c.GLFWwindow, width: c_int, height: c_int) void {
+    _ = width;
+    _ = height;
+    _ = w;
+    vk.framebufferResized = true;
 }
 
 //params: window, key, scancode, action, mods
