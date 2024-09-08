@@ -53,18 +53,22 @@ pub fn build(b: *std.Build) !void {
 
     b.installArtifact(exe);
 
-    //Step to compile shaders
-    //The output file is added in addArgs to output to the shaders directory to then be embedded in vk.zig
-    //Otherwise if put in addOuptutFileArg it would output in the zig cache
+    //Step to compile shaders using glslc
     const shader_step = b.addSystemCommand(&.{"glslc"});
     shader_step.addFileArg(b.path("shaders/tri.frag"));
-    shader_step.addArgs(&.{ "-o", "shaders/frag.spv" });
-    b.getInstallStep().dependOn(&shader_step.step);
+    const shader_location = shader_step.addPrefixedOutputFileArg("-o", "shaders/frag.spv");
 
     const shader_step_2 = b.addSystemCommand(&.{"glslc"});
     shader_step_2.addFileArg(b.path("shaders/tri.vert"));
-    shader_step_2.addArgs(&.{ "-o", "shaders/vert.spv" });
-    b.getInstallStep().dependOn(&shader_step_2.step);
+    const shader_location_2 = shader_step_2.addPrefixedOutputFileArg("-o", "shaders/vert.spv");
+
+    //Copy shader output in cache to source files in /shader folder
+    //IMPORTANT NOTE: usage of WriteFile to write to source files will be deprecated in zig 0.14.0 and will need to change to UpdateSourceFiles
+    const shader_write = b.addWriteFiles();
+    shader_write.addCopyFileToSource(shader_location, "shaders/frag.spv");
+    shader_write.addCopyFileToSource(shader_location_2, "shaders/vert.spv");
+
+    exe.step.dependOn(&shader_write.step);
 
     const run_step = b.step("run", "Run the program");
     run_step.dependOn(&run_exe.step);
