@@ -5,9 +5,13 @@ Image to Ascii is a little experimental project using Zig directly with GLFW + V
 The goal is to make some interesting shaders (such as the name of the project) and use cimgui to modify various parameters.  
 This repository uses cimgui and imgui as submodules, please clone using the --recursive flag, or by doing: `git submodule update --init --recursive`  
 
+## Zig Build Options
+Use `zig build --help` to see available build options  
+Of note are the Project-Specific Options, such as `-Doptimize=ReleaseFast`. `-Doptimize=Debug` is the default when no optimization level is specified.
+
 ## Building on Linux
 Install zig, glfw, vulkan-devel  
-Build with `zig build run`  
+Build+run with `zig build run`  
 Simple as
 
 ## Building on Windows

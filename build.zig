@@ -6,13 +6,20 @@ const os = enum {
 };
 
 pub fn build(b: *std.Build) !void {
+    const optimize = b.standardOptimizeOption(.{});
     const exe = b.addExecutable(.{
         .name = "test",
         .root_source_file = b.path("main.zig"),
         .target = b.graph.host,
+        .optimize = optimize,
     });
 
     const run_exe = b.addRunArtifact(exe);
+
+    //Add option so the code can tell whether it's building for debug or release
+    const options = b.addOptions();
+    options.addOption(bool, "debug", optimize == std.builtin.OptimizeMode.Debug);
+    exe.root_module.addOptions("config", options);
 
     //Check Operating system (important for library linking because windows isn't great at this)
     var buildOs: os = undefined;

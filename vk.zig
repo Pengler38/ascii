@@ -3,6 +3,7 @@
 const c = @import("c.zig");
 
 const std = @import("std");
+const config = @import("config");
 
 const vkf = @import("vk_function_pointers.zig");
 
@@ -66,6 +67,9 @@ const vertices = [_]Vertex{
     .{ .pos = .{ 0.5, 0.5 }, .color = .{ 0.0, 1.0, 0.0 } },
     .{ .pos = .{ -0.5, 0.5 }, .color = .{ 0.0, 0.0, 1.0 } },
 };
+
+const enable_validation_layers = config.debug;
+const validation_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
 var window: *c.GLFWwindow = undefined;
 
@@ -158,8 +162,31 @@ pub fn initVulkan(w: *c.GLFWwindow) void {
     createSyncObjects();
 }
 
+fn checkValidationLayerSupport() bool {
+    const vkEnumerateInstanceLayerProperties: c.PFN_vkEnumerateInstanceLayerProperties = @ptrCast(c.glfwGetInstanceProcAddress(null, "vkEnumerateInstanceLayerProperties"));
+
+    var layer_count: u32 = undefined;
+    _ = vkEnumerateInstanceLayerProperties.?(&layer_count, null);
+
+    const available_layers = std.heap.c_allocator.alloc(c.VkLayerProperties, layer_count) catch heapFailure();
+    defer std.heap.c_allocator.free(available_layers);
+    _ = vkEnumerateInstanceLayerProperties.?(&layer_count, @ptrCast(available_layers));
+
+    return for (validation_layers) |layer| {
+        const layer_found = for (available_layers) |available_layer| {
+            if (strEql(layer, available_layer.layerName ++ "")) break true;
+        } else false;
+
+        if (!layer_found) break false;
+    } else true;
+}
+
 //Populates the instance variable
 fn createInstance() void {
+    if (enable_validation_layers and !checkValidationLayerSupport()) {
+        std.debug.panic("Validation layers requested in debug build, but not available\n", .{});
+    }
+
     //Get CreateInstance function pointer
     const vkCreateInstance: c.PFN_vkCreateInstance = @ptrCast(c.glfwGetInstanceProcAddress(null, "vkCreateInstance"));
 
@@ -180,8 +207,8 @@ fn createInstance() void {
         .pNext = null,
         .flags = 0,
         .pApplicationInfo = null,
-        .enabledLayerCount = 0,
-        .ppEnabledLayerNames = null,
+        .enabledLayerCount = if (enable_validation_layers) validation_layers.len else 0,
+        .ppEnabledLayerNames = if (enable_validation_layers) &validation_layers else null,
         .enabledExtensionCount = count,
         .ppEnabledExtensionNames = vulkanExtensions,
     };
@@ -1022,11 +1049,10 @@ fn cleanupSwapChain() void {
 //Utility function to check the equality of two null terminated sentinel strings
 fn strEql(a: [*:0]const u8, b: [*:0]const u8) bool {
     var i: u32 = 0;
-    while (a[i] != 0 and b[i] != 0) {
+    while (a[i] != 0 and b[i] != 0) : (i += 1) {
         if (a[i] != b[i]) {
             return false;
         }
-        i += 1;
     }
     return true;
 }
