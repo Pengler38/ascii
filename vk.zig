@@ -1030,7 +1030,11 @@ pub fn cleanup() void {
     vkf.p.vkDestroyBuffer.?(device, vertexBuffer, null);
     vkf.p.vkFreeMemory.?(device, vertexBufferMemory, null);
 
+    vkf.p.vkDestroyRenderPass.?(device, renderPass, null);
+
     vkf.p.vkDestroyDevice.?(device, null);
+
+    vkf.p.vkDestroySurfaceKHR.?(instance, surface, null);
     vkf.p.vkDestroyInstance.?(instance, null);
 }
 

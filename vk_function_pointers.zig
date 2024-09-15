@@ -65,6 +65,7 @@ pub const p = struct {
     pub var vkMapMemory: c.PFN_vkMapMemory = null;
     pub var vkUnmapMemory: c.PFN_vkUnmapMemory = null;
     pub var vkCmdBindVertexBuffers: c.PFN_vkCmdBindVertexBuffers = null;
+    pub var vkDestroySurfaceKHR: c.PFN_vkDestroySurfaceKHR = null;
 };
 
 pub fn getVkFunctionPointers(instance: c.VkInstance) !void {
