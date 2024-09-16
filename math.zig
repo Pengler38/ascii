@@ -31,11 +31,10 @@ pub const mat4 = extern struct {
 
     ///Multiplies matrices A * B
     pub fn mult(A: mat4, B: mat4) mat4 {
-        @compileLog("matrix mult currently doesn't work :(");
         var ret: mat4 = undefined;
 
-        for (0..3) |i| {
-            for (0..3) |j| {
+        for (0..4) |i| {
+            for (0..4) |j| {
                 ret.rows[i][j] =
                     A.rows[i][0] * B.rows[0][j] +
                     A.rows[i][1] * B.rows[1][j] +
