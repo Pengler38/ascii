@@ -1146,14 +1146,15 @@ fn updateUniformBuffer(frame: u32) void {
     };
     const current_time = c.glfwGetTime();
 
-    const delta = current_time - static.time;
-
-    _ = delta;
+    const delta: f32 = @floatCast(current_time - static.time);
 
     uniformBuffersMapped[frame].?.* = UniformBuffer{
-        .model = math.make_f32_mat4(1.0),
-        .view = math.make_f32_mat4(1.0),
-        .proj = math.make_f32_mat4(1.0),
+        .model = math.mat4.rotationMatrix(
+            delta * math.radians(45),
+            .{ 0, 0, 1 },
+        ),
+        .view = math.mat4.init(1.0),
+        .proj = math.mat4.init(1.0),
     };
 }
 
