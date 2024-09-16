@@ -66,6 +66,13 @@ pub const p = struct {
     pub var vkUnmapMemory: c.PFN_vkUnmapMemory = null;
     pub var vkCmdBindVertexBuffers: c.PFN_vkCmdBindVertexBuffers = null;
     pub var vkDestroySurfaceKHR: c.PFN_vkDestroySurfaceKHR = null;
+    pub var vkCreateDescriptorSetLayout: c.PFN_vkCreateDescriptorSetLayout = null;
+    pub var vkDestroyDescriptorSetLayout: c.PFN_vkDestroyDescriptorSetLayout = null;
+    pub var vkCreateDescriptorPool: c.PFN_vkCreateDescriptorPool = null;
+    pub var vkDestroyDescriptorPool: c.PFN_vkDestroyDescriptorPool = null;
+    pub var vkCmdBindDescriptorSets: c.PFN_vkCmdBindDescriptorSets = null;
+    pub var vkAllocateDescriptorSets: c.PFN_vkAllocateDescriptorSets = null;
+    pub var vkUpdateDescriptorSets: c.PFN_vkUpdateDescriptorSets = null;
 };
 
 pub fn getVkFunctionPointers(instance: c.VkInstance) !void {
