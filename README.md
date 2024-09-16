@@ -1,6 +1,9 @@
 # Image to Ascii
 Preston Engler
 
+***Graphics Done With The Bare Minimum***  
+<sup>why make it easy when it can be difficult</sup>
+
 Image to Ascii is a little experimental project using Zig directly with GLFW + Vulkan.  
 The goal is to make some interesting shaders (such as the name of the project) and use cimgui to modify various parameters.  
 This repository uses cimgui and imgui as submodules, please clone using the --recursive flag, or by doing: `git submodule update --init --recursive`  
