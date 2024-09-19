@@ -59,7 +59,7 @@ const Vertex = extern struct {
             .{
                 .binding = 0,
                 .location = 0,
-                .format = c.VK_FORMAT_R32G32_SFLOAT,
+                .format = c.VK_FORMAT_R32G32B32_SFLOAT,
                 .offset = @offsetOf(Vertex, "pos"),
             },
             .{
@@ -77,7 +77,7 @@ const vertices = [_]Vertex{
     .{ .pos = .{ 0.0, -0.5, 0 }, .color = .{ 1.0, 0.0, 0.0 } },
     .{ .pos = .{ 0.5, 0.5, 0 }, .color = .{ 0.0, 1.0, 0.0 } },
     .{ .pos = .{ -0.5, 0.5, 0 }, .color = .{ 0.0, 0.0, 1.0 } },
-    .{ .pos = .{ 0, 0.1, 1.5 }, .color = .{ 0.0, 0.0, 0.0 } },
+    .{ .pos = .{ 0, 0.1, 0.5 }, .color = .{ 0.0, 0.0, 0.0 } },
 };
 
 const indices = [_]u16{ 0, 2, 1, 3, 0, 1, 3, 1, 2, 3, 2, 0 };
@@ -1168,9 +1168,12 @@ fn updateUniformBuffer(frame: u32) void {
     const current_time: f32 = @floatCast(c.glfwGetTime());
 
     uniformBuffersMapped[frame].?.* = UniformBuffer{
-        .model = math.mat4.translationMatrix(
+        .model = math.mat4.rotationMatrix(
+            current_time * math.radians(5),
+            .{ 0, 0, 1 },
+        ).translate(
             .{ 0, 0, 0.5 },
-        ).rotate(current_time * math.radians(20), .{ 0.5, 0.70710678, 0.5 }),
+        ).rotate(current_time * math.radians(20), math.normalize(.{ 0.5, 0.70710678, 0.5 })),
         .view = math.mat4.init(1.0),
         .proj = math.mat4.projection(),
     };
