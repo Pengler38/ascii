@@ -73,6 +73,8 @@ pub const p = struct {
     pub var vkCmdBindDescriptorSets: c.PFN_vkCmdBindDescriptorSets = null;
     pub var vkAllocateDescriptorSets: c.PFN_vkAllocateDescriptorSets = null;
     pub var vkUpdateDescriptorSets: c.PFN_vkUpdateDescriptorSets = null;
+    pub var vkCmdBindIndexBuffer: c.PFN_vkCmdBindIndexBuffer = null;
+    pub var vkCmdDrawIndexed: c.PFN_vkCmdDrawIndexed = null;
 };
 
 pub fn getVkFunctionPointers(instance: c.VkInstance) !void {

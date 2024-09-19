@@ -41,7 +41,7 @@ const SwapChainSupportDetails = struct {
 };
 
 const Vertex = extern struct {
-    pos: @Vector(2, f32),
+    pos: @Vector(3, f32),
     color: @Vector(3, f32),
 
     pub fn getBindingDescription() c.VkVertexInputBindingDescription {
@@ -74,10 +74,13 @@ const Vertex = extern struct {
 
 //Constants
 const vertices = [_]Vertex{
-    .{ .pos = .{ 0.0, -0.5 }, .color = .{ 1.0, 0.0, 0.0 } },
-    .{ .pos = .{ 0.5, 0.5 }, .color = .{ 0.0, 1.0, 0.0 } },
-    .{ .pos = .{ -0.5, 0.5 }, .color = .{ 0.0, 0.0, 1.0 } },
+    .{ .pos = .{ 0.0, -0.5, 0 }, .color = .{ 1.0, 0.0, 0.0 } },
+    .{ .pos = .{ 0.5, 0.5, 0 }, .color = .{ 0.0, 1.0, 0.0 } },
+    .{ .pos = .{ -0.5, 0.5, 0 }, .color = .{ 0.0, 0.0, 1.0 } },
+    .{ .pos = .{ 0, 0.1, 1.5 }, .color = .{ 0.0, 0.0, 0.0 } },
 };
+
+const indices = [_]u16{ 0, 2, 1, 3, 0, 1, 3, 1, 2, 3, 2, 0 };
 
 const enable_validation_layers = config.debug;
 const validation_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
@@ -120,6 +123,8 @@ var commandBuffers = std.ArrayList(c.VkCommandBuffer).init(std.heap.c_allocator)
 
 var vertexBuffer: c.VkBuffer = undefined;
 var vertexBufferMemory: c.VkDeviceMemory = undefined;
+var indexBuffer: c.VkBuffer = undefined;
+var indexBufferMemory: c.VkDeviceMemory = undefined;
 
 var imageAvailableSemaphores = std.ArrayList(c.VkSemaphore).init(std.heap.c_allocator);
 var renderFinishedSemaphores = std.ArrayList(c.VkSemaphore).init(std.heap.c_allocator);
@@ -161,18 +166,18 @@ pub fn initVulkan(w: *c.GLFWwindow) void {
 
     //Pick Vulkan device and find the queue families
     pickPhysicalDevice();
-    const indices = findQueueFamilies(physicalDevice);
+    const queue_family_indices = findQueueFamilies(physicalDevice);
 
     //Query GLFW for presentation support
-    if (c.glfwGetPhysicalDevicePresentationSupport(instance, physicalDevice, indices.presentation.?) == c.GLFW_FALSE) {
+    if (c.glfwGetPhysicalDevicePresentationSupport(instance, physicalDevice, queue_family_indices.presentation.?) == c.GLFW_FALSE) {
         std.debug.panic("GLFW Presentation not supported\n", .{});
     }
 
-    createLogicalDevice(indices.graphics.?);
+    createLogicalDevice(queue_family_indices.graphics.?);
 
     //Create queues
-    vkf.p.vkGetDeviceQueue.?(device, indices.graphics.?, 0, &graphicsQueue);
-    vkf.p.vkGetDeviceQueue.?(device, indices.presentation.?, 0, &presentQueue);
+    vkf.p.vkGetDeviceQueue.?(device, queue_family_indices.graphics.?, 0, &graphicsQueue);
+    vkf.p.vkGetDeviceQueue.?(device, queue_family_indices.presentation.?, 0, &presentQueue);
 
     createSwapChain();
     createImageViews();
@@ -180,6 +185,7 @@ pub fn initVulkan(w: *c.GLFWwindow) void {
 
     createUniformBuffers();
     createVertexBuffer();
+    createIndexBuffer();
 
     createDescriptorSetLayout();
     createDescriptorPool();
@@ -274,13 +280,13 @@ fn pickPhysicalDevice() void {
 
 fn isDeviceSuitable(d: c.VkPhysicalDevice) bool {
     //TODO check for appropriate PhysicalDeviceProperties and PhysicalDeviceFeatures
-    const indices = findQueueFamilies(d);
+    const queue_family_indices = findQueueFamilies(d);
     const swapChainSupport = querySwapChainSupport(d);
     defer swapChainSupport.deinit();
     const swapChainSupported = swapChainSupport.formats.items.len > 0 and
         swapChainSupport.presentModes.items.len > 0;
 
-    return indices.graphics != null and indices.presentation != null and
+    return queue_family_indices.graphics != null and queue_family_indices.presentation != null and
         checkDeviceExtensionSupport(d) == true and
         swapChainSupported;
 }
@@ -426,15 +432,15 @@ fn createSwapChain() void {
         .oldSwapchain = null,
     };
 
-    const indices = findQueueFamilies(physicalDevice);
-    if (indices.graphics.? == indices.presentation.?) {
+    const queue_family_indices = findQueueFamilies(physicalDevice);
+    if (queue_family_indices.graphics.? == queue_family_indices.presentation.?) {
         createInfo.imageSharingMode = c.VK_SHARING_MODE_EXCLUSIVE;
         createInfo.queueFamilyIndexCount = 0;
         createInfo.pQueueFamilyIndices = null;
     } else {
         createInfo.imageSharingMode = c.VK_SHARING_MODE_CONCURRENT;
         createInfo.queueFamilyIndexCount = 2;
-        createInfo.pQueueFamilyIndices = &[_]u32{ indices.graphics.?, indices.presentation.? };
+        createInfo.pQueueFamilyIndices = &[_]u32{ queue_family_indices.graphics.?, queue_family_indices.presentation.? };
     }
 
     if (vkf.p.vkCreateSwapchainKHR.?(device, &createInfo, null, &swapChain) != c.VK_SUCCESS) {
@@ -865,6 +871,22 @@ fn createVertexBuffer() void {
     vkf.p.vkUnmapMemory.?(device, vertexBufferMemory);
 }
 
+fn createIndexBuffer() void {
+    const buffer_size = @sizeOf(@TypeOf(indices));
+    createBuffer(
+        buffer_size,
+        c.VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &indexBuffer,
+        &indexBufferMemory,
+    );
+
+    var data: ?[*]u16 = undefined;
+    _ = vkf.p.vkMapMemory.?(device, indexBufferMemory, 0, buffer_size, 0, @ptrCast(&data));
+    @memcpy(data.?, &indices);
+    vkf.p.vkUnmapMemory.?(device, indexBufferMemory);
+}
+
 fn createUniformBuffers() void {
     const buffer_size = @sizeOf(UniformBuffer);
 
@@ -1033,6 +1055,7 @@ fn recordCommandBuffer(local_command_buffer: c.VkCommandBuffer, image_index: u32
     const vertexBuffers = [_]c.VkBuffer{vertexBuffer};
     const offsets = [_]c.VkDeviceSize{0};
     vkf.p.vkCmdBindVertexBuffers.?(local_command_buffer, 0, 1, &vertexBuffers, &offsets);
+    vkf.p.vkCmdBindIndexBuffer.?(local_command_buffer, indexBuffer, 0, c.VK_INDEX_TYPE_UINT16);
 
     vkf.p.vkCmdBindDescriptorSets.?(
         local_command_buffer,
@@ -1045,7 +1068,8 @@ fn recordCommandBuffer(local_command_buffer: c.VkCommandBuffer, image_index: u32
         null,
     );
 
-    vkf.p.vkCmdDraw.?(local_command_buffer, @intCast(vertices.len), 1, 0, 0);
+    //vkf.p.vkCmdDraw.?(local_command_buffer, @intCast(vertices.len), 1, 0, 0);
+    vkf.p.vkCmdDrawIndexed.?(local_command_buffer, @intCast(indices.len), 1, 0, 0, 0);
 
     vkf.p.vkCmdEndRenderPass.?(local_command_buffer);
     if (vkf.p.vkEndCommandBuffer.?(local_command_buffer) != c.VK_SUCCESS) {
@@ -1141,19 +1165,12 @@ pub fn drawFrame() void {
 }
 
 fn updateUniformBuffer(frame: u32) void {
-    const static = struct {
-        var time: f64 = 0;
-    };
-    const current_time = c.glfwGetTime();
-
-    const delta: f32 = @floatCast(current_time - static.time);
+    const current_time: f32 = @floatCast(c.glfwGetTime());
 
     uniformBuffersMapped[frame].?.* = UniformBuffer{
-        .model = math.mat4.init(
-            1.0,
-        ).translate(
+        .model = math.mat4.translationMatrix(
             .{ 0, 0, 0.5 },
-        ).rotate(delta * math.radians(20), .{ 0.5, 0.70710678, 0.5 }),
+        ).rotate(current_time * math.radians(20), .{ 0.5, 0.70710678, 0.5 }),
         .view = math.mat4.init(1.0),
         .proj = math.mat4.projection(),
     };
@@ -1203,6 +1220,8 @@ pub fn cleanup() void {
 
     vkf.p.vkDestroyBuffer.?(device, vertexBuffer, null);
     vkf.p.vkFreeMemory.?(device, vertexBufferMemory, null);
+    vkf.p.vkDestroyBuffer.?(device, indexBuffer, null);
+    vkf.p.vkFreeMemory.?(device, indexBufferMemory, null);
 
     vkf.p.vkDestroyRenderPass.?(device, renderPass, null);
 
