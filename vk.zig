@@ -1149,12 +1149,13 @@ fn updateUniformBuffer(frame: u32) void {
     const delta: f32 = @floatCast(current_time - static.time);
 
     uniformBuffersMapped[frame].?.* = UniformBuffer{
-        .model = math.mat4.rotationMatrix(
-            delta * math.radians(45),
-            .{ 0, 0, 1 },
-        ),
+        .model = math.mat4.init(
+            1.0,
+        ).translate(
+            .{ 0, 0, 0.5 },
+        ).rotate(delta * math.radians(20), .{ 0.5, 0.70710678, 0.5 }),
         .view = math.mat4.init(1.0),
-        .proj = math.mat4.init(1.0),
+        .proj = math.mat4.projection(),
     };
 }
 
