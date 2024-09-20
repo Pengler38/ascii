@@ -1167,6 +1167,8 @@ pub fn drawFrame() void {
 fn updateUniformBuffer(frame: u32) void {
     const current_time: f32 = @floatCast(c.glfwGetTime());
 
+    const aspect_ratio = @as(f32, @floatFromInt(swapChainExtent.width)) / @as(f32, @floatFromInt(swapChainExtent.height));
+
     uniformBuffersMapped[frame].?.* = UniformBuffer{
         .model = math.mat4.rotationMatrix(
             current_time * math.radians(5),
@@ -1175,7 +1177,7 @@ fn updateUniformBuffer(frame: u32) void {
             .{ 0, 0, 0.5 },
         ).rotate(current_time * math.radians(20), math.normalize(.{ 0.5, 0.70710678, 0.5 })),
         .view = math.mat4.init(1.0),
-        .proj = math.mat4.projection(),
+        .proj = math.mat4.orthographicProjection(0 + aspect_ratio * -1.0, 0 + aspect_ratio * 1.0, -1, 1, 100, -100),
     };
 }
 

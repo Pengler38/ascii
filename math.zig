@@ -135,6 +135,15 @@ pub const mat4 = extern struct {
     pub fn projection() mat4 {
         return mat4.init(1.0).translate(.{ 0, 0, 50 }).scale(.{ 1, 1, 0.01 });
     }
+
+    pub fn orthographicProjection(left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) mat4 {
+        return initRows(.{
+            .{ 2 / (right - left), 0, 0, -1 * (right + left) / (right - left) },
+            .{ 0, 2 / (top - bottom), 0, -1 * (top + bottom) / (top - bottom) },
+            .{ 0, 0, -1 / (far - near), -1 * (near) / (far - near) },
+            .{ 0, 0, 0, 1 },
+        });
+    }
 };
 
 pub const vec3 = @Vector(3, f32);
