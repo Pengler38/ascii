@@ -579,8 +579,8 @@ fn createRenderPass() void {
 }
 
 fn createGraphicsPipeline() void {
-    const vert_shader_code: [:0]align(4) const u8 = @alignCast(@embedFile("shaders/vert.spv"));
-    const frag_shader_code: [:0]align(4) const u8 = @alignCast(@embedFile("shaders/frag.spv"));
+    const vert_shader_code: [:0]align(4) const u8 = @alignCast(@embedFile("shaders/tri.vert.spv"));
+    const frag_shader_code: [:0]align(4) const u8 = @alignCast(@embedFile("shaders/tri.frag.spv"));
 
     const vert_shader_module = createShaderModule(vert_shader_code);
     defer vkf.p.vkDestroyShaderModule.?(device, vert_shader_module, null);

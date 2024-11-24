@@ -5,7 +5,12 @@ const os = enum {
     windows,
 };
 
+//Global arena
+var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+
 pub fn build(b: *std.Build) !void {
+    defer arena.deinit();
+
     const optimize = b.standardOptimizeOption(.{});
     const exe = b.addExecutable(.{
         .name = "test",
@@ -35,8 +40,6 @@ pub fn build(b: *std.Build) !void {
     }
 
     //OS dependent building:
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
 
     var vulkanPathStr = std.ArrayList(u8).init(arena.allocator());
     defer vulkanPathStr.deinit();
@@ -60,31 +63,40 @@ pub fn build(b: *std.Build) !void {
 
     b.installArtifact(exe);
 
-    //Step to compile shaders using glslc
-    const shader_step = b.addSystemCommand(&.{"glslc"});
-    shader_step.addFileArg(b.path("shaders/tri.frag"));
-    const shader_location = shader_step.addPrefixedOutputFileArg("-o", "shaders/frag.spv");
-
-    const shader_step_2 = b.addSystemCommand(&.{"glslc"});
-    shader_step_2.addFileArg(b.path("shaders/tri.vert"));
-    const shader_location_2 = shader_step_2.addPrefixedOutputFileArg("-o", "shaders/vert.spv");
-
-    //Copy shader output in cache to source files in /shader folder
-    //IMPORTANT NOTE: usage of WriteFile to write to source files will be deprecated in zig 0.14.0 and will need to change to UpdateSourceFiles
-    const shader_write = b.addWriteFiles();
-    shader_write.addCopyFileToSource(shader_location, "shaders/frag.spv");
-    shader_write.addCopyFileToSource(shader_location_2, "shaders/vert.spv");
-
-    exe.step.dependOn(&shader_write.step);
+    exe.step.dependOn(&addShaders(b).step);
 
     const run_step = b.step("run", "Run the program");
     run_step.dependOn(&run_exe.step);
 }
 
-fn findVulkanSDK(a: *std.ArrayList(u8)) !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
+fn addShaders(b: *std.Build) *std.Build.Step.WriteFile {
+    //Step to compile shaders using glslc
+    const names = [_][:0]const u8{
+        "shaders/tri.vert",
+        "shaders/tri.frag",
+    };
 
+    const out_names = [_][:0]const u8{
+        "shaders/tri.vert.spv",
+        "shaders/tri.frag.spv",
+    };
+
+    //Copy shader output in cache to source files in /shader folder
+    //IMPORTANT NOTE: usage of WriteFile to write to source files will be deprecated in zig 0.14.0 and will need to change to UpdateSourceFiles
+    const write = b.addWriteFiles();
+
+    for (names, out_names) |name, out_name| {
+        const comp_step = b.addSystemCommand(&.{"glslc"});
+        comp_step.addFileArg(b.path(name));
+        const location = comp_step.addPrefixedOutputFileArg("-o", out_name);
+
+        write.addCopyFileToSource(location, out_name);
+    }
+
+    return write;
+}
+
+fn findVulkanSDK(a: *std.ArrayList(u8)) !void {
     const env_map = try arena.allocator().create(std.process.EnvMap);
     env_map.* = try std.process.getEnvMap(arena.allocator());
 
