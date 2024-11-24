@@ -60,7 +60,7 @@ export fn framebufferResizeCallback(w: ?*c.GLFWwindow, width: c_int, height: c_i
     _ = width;
     _ = height;
     _ = w;
-    vk.framebufferResized = true;
+    vk.framebufferResized.* = true;
 }
 
 //params: window, key, scancode, action, mods
