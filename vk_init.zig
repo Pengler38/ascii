@@ -211,12 +211,12 @@ fn pickPhysicalDevice() void {
 
 fn isDeviceSuitable(d: c.VkPhysicalDevice) bool {
     //TODO check for appropriate PhysicalDeviceProperties and PhysicalDeviceFeatures
-    const queue_family_indices = findQueueFamilies(d);
+    core.queue_family_indices = findQueueFamilies(d);
     const swap_chain_support = querySwapChainSupport(d, init_alloc);
     const swapChainSupported = swap_chain_support.formats.items.len > 0 and
         swap_chain_support.presentModes.items.len > 0;
 
-    return queue_family_indices.graphics != null and queue_family_indices.presentation != null and
+    return core.queue_family_indices.graphics != null and core.queue_family_indices.presentation != null and
         checkDeviceExtensionSupport(d) == true and
         swapChainSupported;
 }

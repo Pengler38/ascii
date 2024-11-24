@@ -1,3 +1,6 @@
+//util.zig
+//Preston Engler
+
 const std = @import("std");
 
 pub fn heapFail() noreturn {
