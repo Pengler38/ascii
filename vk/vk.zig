@@ -3,7 +3,7 @@
 
 //The in/out file for the rest of the program to interface with the vulkan zig files
 
-const c = @import("c.zig");
+const c = @import("../c.zig");
 const init = @import("vk_init.zig");
 const draw_frame = @import("vk_draw_frame.zig");
 const core = @import("vk_core.zig");

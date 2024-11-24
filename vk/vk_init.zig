@@ -2,16 +2,16 @@
 //Preston Engler
 
 //Imports
-const c = @import("c.zig");
+const c = @import("../c.zig");
 
 const std = @import("std");
 const config = @import("config");
 
 const vkf = @import("vk_function_pointers.zig");
-const math = @import("math.zig");
+const math = @import("../math.zig");
 const core = @import("vk_core.zig");
-const util = @import("util.zig");
-const graphics = @import("graphics.zig");
+const util = @import("../util.zig");
+const graphics = @import("../graphics.zig");
 
 //Imported variables
 const SwapChainSupportDetails = core.SwapChainSupportDetails;
@@ -371,8 +371,8 @@ fn createRenderPass() void {
 }
 
 fn createGraphicsPipeline() void {
-    const vert_shader_code: [:0]align(4) const u8 = @alignCast(@embedFile("shaders/tri.vert.spv"));
-    const frag_shader_code: [:0]align(4) const u8 = @alignCast(@embedFile("shaders/tri.frag.spv"));
+    const vert_shader_code: [:0]align(4) const u8 = @alignCast(@embedFile("../shaders/tri.vert.spv"));
+    const frag_shader_code: [:0]align(4) const u8 = @alignCast(@embedFile("../shaders/tri.frag.spv"));
 
     const vert_shader_module = createShaderModule(vert_shader_code);
     defer vkf.p.vkDestroyShaderModule.?(core.device, vert_shader_module, null);

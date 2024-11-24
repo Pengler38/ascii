@@ -4,7 +4,7 @@
 const c = @import("c.zig");
 
 const std = @import("std");
-const vk = @import("vk.zig");
+const vk = @import("vk/vk.zig");
 
 const WIDTH = 640;
 const HEIGHT = 480;

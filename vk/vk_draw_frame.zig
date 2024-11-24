@@ -2,15 +2,15 @@
 //Preston Engler
 
 //Imports
-const c = @import("c.zig");
+const c = @import("../c.zig");
 
 const std = @import("std");
 const config = @import("config");
 
 const vkf = @import("vk_function_pointers.zig");
-const math = @import("math.zig");
+const math = @import("../math.zig");
 const core = @import("vk_core.zig");
-const graphics = @import("graphics.zig");
+const graphics = @import("../graphics.zig");
 
 var current_frame: u32 = 0;
 

@@ -2,10 +2,10 @@
 //Preston Engler
 
 const std = @import("std");
-const c = @import("c.zig");
-const math = @import("math.zig");
+const c = @import("../c.zig");
+const math = @import("../math.zig");
 const vkf = @import("vk_function_pointers.zig");
-const util = @import("util.zig");
+const util = @import("../util.zig");
 
 //types:
 //UniformBuffer

@@ -2,7 +2,7 @@
 //Preston Engler
 //This file holds all vulkan function pointers and gets them using glfwGetInstanceProcAddress
 
-const c = @import("c.zig");
+const c = @import("../c.zig");
 
 pub const p = struct {
     pub var vkDestroyInstance: c.PFN_vkDestroyInstance = null;
