@@ -234,12 +234,11 @@ pub fn createSwapChain() void {
     swapChainExtent = extent;
 
     //Save the handles of the swapchain images
-    swapChainImages = std.ArrayList(c.VkImage).init(std.heap.c_allocator);
     _ = vkf.p.vkGetSwapchainImagesKHR.?(device, swapChain, &imageCount, null);
-    const newMemory = swapChainImages.addManyAsSlice(imageCount) catch {
+    swapChainImages.resize(imageCount) catch {
         util.heapFail();
     };
-    _ = vkf.p.vkGetSwapchainImagesKHR.?(device, swapChain, &imageCount, @ptrCast(newMemory));
+    _ = vkf.p.vkGetSwapchainImagesKHR.?(device, swapChain, &imageCount, @ptrCast(swapChainImages.items));
 }
 
 pub fn waitIdle() void {
