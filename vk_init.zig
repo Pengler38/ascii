@@ -200,6 +200,8 @@ fn pickPhysicalDevice() void {
     for (devices) |d| {
         if (isDeviceSuitable(d) == true) {
             physicalDevice = d;
+            //Load swapchain support info permanently into core.swap
+            core.swapChainSupport = querySwapChainSupport(d, core.permanent_alloc);
             return;
         }
     }
@@ -210,12 +212,38 @@ fn pickPhysicalDevice() void {
 fn isDeviceSuitable(d: c.VkPhysicalDevice) bool {
     //TODO check for appropriate PhysicalDeviceProperties and PhysicalDeviceFeatures
     const queue_family_indices = findQueueFamilies(d);
-    const swapChainSupported = core.swapChainSupport.formats.items.len > 0 and
-        core.swapChainSupport.presentModes.items.len > 0;
+    const swap_chain_support = querySwapChainSupport(d, init_alloc);
+    const swapChainSupported = swap_chain_support.formats.items.len > 0 and
+        swap_chain_support.presentModes.items.len > 0;
 
     return queue_family_indices.graphics != null and queue_family_indices.presentation != null and
         checkDeviceExtensionSupport(d) == true and
         swapChainSupported;
+}
+
+fn querySwapChainSupport(d: c.VkPhysicalDevice, allocator: std.mem.Allocator) SwapChainSupportDetails {
+    var details: SwapChainSupportDetails = SwapChainSupportDetails.init(allocator);
+    _ = vkf.p.vkGetPhysicalDeviceSurfaceCapabilitiesKHR.?(d, core.surface, @ptrCast(&details.capabilities));
+
+    var formatCount: u32 = undefined;
+    _ = vkf.p.vkGetPhysicalDeviceSurfaceFormatsKHR.?(d, core.surface, &formatCount, null);
+    if (formatCount != 0) {
+        const newMemory = details.formats.addManyAsSlice(formatCount) catch {
+            util.heapFail();
+        };
+        _ = vkf.p.vkGetPhysicalDeviceSurfaceFormatsKHR.?(d, core.surface, &formatCount, @ptrCast(newMemory));
+    }
+
+    var presentModeCount: u32 = undefined;
+    _ = vkf.p.vkGetPhysicalDeviceSurfacePresentModesKHR.?(d, core.surface, &presentModeCount, null);
+    if (presentModeCount != 0) {
+        const newMemory = details.presentModes.addManyAsSlice(formatCount) catch {
+            util.heapFail();
+        };
+        _ = vkf.p.vkGetPhysicalDeviceSurfacePresentModesKHR.?(d, core.surface, &presentModeCount, @ptrCast(newMemory));
+    }
+
+    return details;
 }
 
 fn checkDeviceExtensionSupport(d: c.VkPhysicalDevice) bool {
@@ -270,31 +298,6 @@ fn findQueueFamilies(thisDevice: c.VkPhysicalDevice) QueueFamilyIndices {
     }
 
     return ret;
-}
-
-fn querySwapChainSupport(d: c.VkPhysicalDevice) SwapChainSupportDetails {
-    var details: SwapChainSupportDetails = SwapChainSupportDetails.init();
-    _ = vkf.p.vkGetPhysicalDeviceSurfaceCapabilitiesKHR.?(d, core.surface, @ptrCast(&details.capabilities));
-
-    var formatCount: u32 = undefined;
-    _ = vkf.p.vkGetPhysicalDeviceSurfaceFormatsKHR.?(d, core.surface, &formatCount, null);
-    if (formatCount != 0) {
-        const newMemory = details.formats.addManyAsSlice(formatCount) catch {
-            util.heapFail();
-        };
-        _ = vkf.p.vkGetPhysicalDeviceSurfaceFormatsKHR.?(d, core.surface, &formatCount, @ptrCast(newMemory));
-    }
-
-    var presentModeCount: u32 = undefined;
-    _ = vkf.p.vkGetPhysicalDeviceSurfacePresentModesKHR.?(d, core.surface, &presentModeCount, null);
-    if (presentModeCount != 0) {
-        const newMemory = details.presentModes.addManyAsSlice(formatCount) catch {
-            util.heapFail();
-        };
-        _ = vkf.p.vkGetPhysicalDeviceSurfacePresentModesKHR.?(d, core.surface, &presentModeCount, @ptrCast(newMemory));
-    }
-
-    return details;
 }
 
 fn createLogicalDevice(queueFamilyIndex: u32) void {

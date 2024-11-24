@@ -25,10 +25,10 @@ pub const SwapChainSupportDetails = struct {
     formats: std.ArrayList(c.VkSurfaceFormatKHR) = undefined,
     presentModes: std.ArrayList(c.VkPresentModeKHR) = undefined,
 
-    pub fn init() SwapChainSupportDetails {
+    pub fn init(a: std.mem.Allocator) SwapChainSupportDetails {
         var self = SwapChainSupportDetails{};
-        self.formats = std.ArrayList(c.VkSurfaceFormatKHR).init(permanent_alloc);
-        self.presentModes = std.ArrayList(c.VkPresentModeKHR).init(permanent_alloc);
+        self.formats = std.ArrayList(c.VkSurfaceFormatKHR).init(a);
+        self.presentModes = std.ArrayList(c.VkPresentModeKHR).init(a);
         return self;
     }
 
@@ -43,7 +43,7 @@ pub const max_frames_in_flight = 2;
 
 //Allocator
 var permanent_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-const permanent_alloc = permanent_arena.allocator();
+pub const permanent_alloc = permanent_arena.allocator();
 
 //Public variables
 pub var device: c.VkDevice = undefined;
