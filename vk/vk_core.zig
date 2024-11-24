@@ -66,7 +66,7 @@ pub var graphicsQueue: c.VkQueue = undefined;
 pub var presentQueue: c.VkQueue = undefined;
 pub var graphicsPipeline: c.VkPipeline = undefined;
 
-pub var swapChainFramebuffers: std.ArrayList(c.VkFramebuffer) = std.ArrayList(c.VkFramebuffer).init(permanent_alloc);
+pub var swapChainFramebuffers = std.ArrayList(c.VkFramebuffer).init(permanent_alloc);
 pub var vertexBuffer: c.VkBuffer = undefined;
 pub var vertexBufferMemory: c.VkDeviceMemory = undefined;
 pub var indexBuffer: c.VkBuffer = undefined;
@@ -112,11 +112,11 @@ pub fn createFramebuffers() void {
 }
 
 pub fn createImageViews() void {
-    const mem = swapChainImageViews.addManyAsSlice(swapChainImages.items.len) catch {
+    swapChainImageViews.resize(swapChainImages.items.len) catch {
         util.heapFail();
     };
 
-    for (mem, 0..) |*element, i| {
+    for (swapChainImageViews.items, 0..) |*element, i| {
         const createInfo: c.VkImageViewCreateInfo = .{
             .sType = c.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .image = swapChainImages.items[i],

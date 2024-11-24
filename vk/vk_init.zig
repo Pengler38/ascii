@@ -129,6 +129,8 @@ pub fn initVulkan(w: *c.GLFWwindow) void {
     createCommandPool();
     createCommandBuffers();
     createSyncObjects();
+
+    init_arena.deinit();
 }
 
 fn checkValidationLayerSupport() bool {
