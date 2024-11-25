@@ -13,54 +13,17 @@ const core = @import("vk_core.zig");
 const util = @import("../util.zig");
 const graphics = @import("../graphics.zig");
 
-//Imported variables
+//Imported Types
 const SwapChainSupportDetails = core.SwapChainSupportDetails;
 const QueueFamilyIndices = core.QueueFamilyIndices;
 const Vertex = graphics.Vertex;
-
 const UniformBuffer = core.UniformBuffer;
-
-const max_frames_in_flight = core.max_frames_in_flight;
-
-const COMMENTED_OUT = struct {
-    var device: **c.VkDevice = &core.device;
-    var inFlightFences = &core.inFlightFences;
-    var window: **c.GLFWwindow = &core.window;
-    var swapChain: **c.VkSwapchainKHR = &core.swapChain;
-    var swapChainExtent: **c.VkExtent2D = &core.swapChainExtent;
-    var renderPass: **c.VkRenderPass = &core.renderPass;
-    var imageAvailableSemaphores = &core.imageAvailableSemaphores;
-    var uniformBuffersMapped = &core.uniformBuffersMapped;
-    var commandBuffers = &core.commandBuffers;
-    var renderFinishedSemaphores = &core.renderFinishedSemaphores;
-    var swapChainFramebuffers: *std.ArrayList(c.VkFramebuffer) = &core.swapChainFramebuffers;
-    var graphicsPipeline: *c.VkPipeline = &core.graphicsPipeline;
-    var vertexBuffer: *c.VkBuffer = &core.vertexBuffer;
-    var instance = &core.instance;
-    var surface = &core.surface;
-    var swapChainImageFormat = &core.swapChainImageFormat;
-    var descriptorSetLayout = &core.descriptorSetLayout;
-    var commandPool = &core.commandPool;
-    var descriptorPool = &core.descriptorPool;
-    var pipelineLayout = &core.pipelineLayout;
-    var vertexBufferMemory = &core.vertexBufferMemory;
-    var indexBufferMemory = &core.indexBufferMemory;
-    var uniformBuffers = &core.uniformBuffers;
-    var uniformBuffersMemory = &core.uniformBuffersMemory;
-    var descriptorSets = &core.descriptorSets;
-};
-
-const vertices = graphics.vertices;
-const indices = graphics.indices;
 
 //Allocator
 var init_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
 const init_alloc = init_arena.allocator();
 
-//Types
-
 //Constants
-
 const enable_validation_layers = config.debug;
 const validation_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
@@ -70,8 +33,6 @@ const deviceExtensions = [_][*:0]const u8{
 
 //Private variables
 var physicalDevice: c.VkPhysicalDevice = undefined;
-
-//var uniformBuffersMapped = [max_frames_in_flight]?*align(@alignOf(math.mat4)) anyopaque{};
 
 pub fn initVulkan(w: *c.GLFWwindow) void {
     core.window = w;
@@ -624,7 +585,7 @@ fn createBuffer(
 }
 
 fn createVertexBuffer() void {
-    const buffer_size = @sizeOf(@TypeOf(vertices));
+    const buffer_size = @sizeOf(@TypeOf(graphics.vertices));
     createBuffer(
         buffer_size,
         c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -635,12 +596,12 @@ fn createVertexBuffer() void {
 
     var data: ?[*]Vertex = undefined;
     _ = vkf.p.vkMapMemory.?(core.device, core.vertexBufferMemory, 0, buffer_size, 0, @ptrCast(&data));
-    @memcpy(data.?, &vertices);
+    @memcpy(data.?, &graphics.vertices);
     vkf.p.vkUnmapMemory.?(core.device, core.vertexBufferMemory);
 }
 
 fn createIndexBuffer() void {
-    const buffer_size = @sizeOf(@TypeOf(indices));
+    const buffer_size = @sizeOf(@TypeOf(graphics.indices));
     createBuffer(
         buffer_size,
         c.VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
@@ -651,14 +612,14 @@ fn createIndexBuffer() void {
 
     var data: ?[*]u16 = undefined;
     _ = vkf.p.vkMapMemory.?(core.device, core.indexBufferMemory, 0, buffer_size, 0, @ptrCast(&data));
-    @memcpy(data.?, &indices);
+    @memcpy(data.?, &graphics.indices);
     vkf.p.vkUnmapMemory.?(core.device, core.indexBufferMemory);
 }
 
 fn createUniformBuffers() void {
     const buffer_size = @sizeOf(UniformBuffer);
 
-    for (0..max_frames_in_flight) |i| {
+    for (0..core.max_frames_in_flight) |i| {
         createBuffer(
             buffer_size,
             c.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -694,14 +655,14 @@ fn createDescriptorSetLayout() void {
 fn createDescriptorPool() void {
     const pool_size = c.VkDescriptorPoolSize{
         .type = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .descriptorCount = max_frames_in_flight,
+        .descriptorCount = core.max_frames_in_flight,
     };
 
     const pool_info = c.VkDescriptorPoolCreateInfo{
         .sType = c.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .poolSizeCount = 1,
         .pPoolSizes = &pool_size,
-        .maxSets = max_frames_in_flight,
+        .maxSets = core.max_frames_in_flight,
     };
 
     if (vkf.p.vkCreateDescriptorPool.?(core.device, &pool_info, null, &core.descriptorPool) != c.VK_SUCCESS) {
@@ -710,11 +671,11 @@ fn createDescriptorPool() void {
 }
 
 fn createDescriptorSets() void {
-    var layouts = [max_frames_in_flight]c.VkDescriptorSetLayout{ core.descriptorSetLayout, core.descriptorSetLayout };
+    var layouts = [core.max_frames_in_flight]c.VkDescriptorSetLayout{ core.descriptorSetLayout, core.descriptorSetLayout };
     const alloc_info = c.VkDescriptorSetAllocateInfo{
         .sType = c.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .descriptorPool = core.descriptorPool,
-        .descriptorSetCount = max_frames_in_flight,
+        .descriptorSetCount = core.max_frames_in_flight,
         .pSetLayouts = &layouts,
     };
 
@@ -722,7 +683,7 @@ fn createDescriptorSets() void {
         std.debug.panic("Failed to allocate descriptor sets\n", .{});
     }
 
-    for (0..max_frames_in_flight) |i| {
+    for (0..core.max_frames_in_flight) |i| {
         const buffer_info = c.VkDescriptorBufferInfo{
             .buffer = core.uniformBuffers[i],
             .offset = 0,
@@ -775,13 +736,13 @@ fn createCommandBuffers() void {
 }
 
 fn createSyncObjects() void {
-    core.imageAvailableSemaphores.resize(max_frames_in_flight) catch {
+    core.imageAvailableSemaphores.resize(core.max_frames_in_flight) catch {
         util.heapFail();
     };
-    core.renderFinishedSemaphores.resize(max_frames_in_flight) catch {
+    core.renderFinishedSemaphores.resize(core.max_frames_in_flight) catch {
         util.heapFail();
     };
-    core.inFlightFences.resize(max_frames_in_flight) catch {
+    core.inFlightFences.resize(core.max_frames_in_flight) catch {
         util.heapFail();
     };
 
@@ -792,7 +753,7 @@ fn createSyncObjects() void {
         .sType = c.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
         .flags = c.VK_FENCE_CREATE_SIGNALED_BIT,
     };
-    for (0..max_frames_in_flight) |i| {
+    for (0..core.max_frames_in_flight) |i| {
         if (vkf.p.vkCreateSemaphore.?(core.device, &semaphore_info, null, &core.imageAvailableSemaphores.items[i]) != c.VK_SUCCESS or
             vkf.p.vkCreateSemaphore.?(core.device, &semaphore_info, null, &core.renderFinishedSemaphores.items[i]) != c.VK_SUCCESS or
             vkf.p.vkCreateFence.?(core.device, &fence_info, null, &core.inFlightFences.items[i]) != c.VK_SUCCESS)

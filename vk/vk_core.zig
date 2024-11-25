@@ -46,45 +46,43 @@ var permanent_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
 pub const permanent_alloc = permanent_arena.allocator();
 
 //Public variables
-pub var device: c.VkDevice = undefined;
-pub var window: *c.GLFWwindow = undefined;
-pub var swapChain: c.VkSwapchainKHR = undefined;
-pub var swapChainExtent: c.VkExtent2D = undefined;
-pub var renderPass: c.VkRenderPass = undefined;
-pub var imageAvailableSemaphores = std.ArrayList(c.VkSemaphore).init(permanent_alloc);
-pub var inFlightFences = std.ArrayList(c.VkFence).init(permanent_alloc);
-pub var uniformBuffersMapped = [max_frames_in_flight]?*UniformBuffer{ null, null };
-pub var commandBuffers = std.ArrayList(c.VkCommandBuffer).init(permanent_alloc);
-pub var renderFinishedSemaphores = std.ArrayList(c.VkSemaphore).init(permanent_alloc);
-pub var commandPool: c.VkCommandPool = undefined;
-pub var pipelineLayout: c.VkPipelineLayout = undefined;
-
-pub var uniformBuffers: [max_frames_in_flight]c.VkBuffer = undefined;
-pub var uniformBuffersMemory: [max_frames_in_flight]c.VkDeviceMemory = undefined;
-
-pub var graphicsQueue: c.VkQueue = undefined;
-pub var presentQueue: c.VkQueue = undefined;
-pub var graphicsPipeline: c.VkPipeline = undefined;
-
-pub var swapChainFramebuffers = std.ArrayList(c.VkFramebuffer).init(permanent_alloc);
-pub var vertexBuffer: c.VkBuffer = undefined;
-pub var vertexBufferMemory: c.VkDeviceMemory = undefined;
-pub var indexBuffer: c.VkBuffer = undefined;
-pub var indexBufferMemory: c.VkDeviceMemory = undefined;
-
-pub var surface: c.VkSurfaceKHR = undefined;
-pub var instance: c.VkInstance = undefined;
-pub var swapChainImageFormat: c.VkFormat = undefined;
-
-pub var swapChainSupport: SwapChainSupportDetails = undefined;
-pub var queue_family_indices: QueueFamilyIndices = undefined;
-pub var descriptorSets: [max_frames_in_flight]c.VkDescriptorSet = undefined;
-
 pub var framebufferResized = false;
-pub var swapChainImages = std.ArrayList(c.VkImage).init(permanent_alloc);
-pub var swapChainImageViews = std.ArrayList(c.VkImageView).init(permanent_alloc);
+
+pub var window: *c.GLFWwindow = undefined;
+
+pub var commandPool: c.VkCommandPool = undefined;
+pub var device: c.VkDevice = undefined;
 pub var descriptorPool: c.VkDescriptorPool = undefined;
 pub var descriptorSetLayout: c.VkDescriptorSetLayout = undefined;
+pub var graphicsQueue: c.VkQueue = undefined;
+pub var graphicsPipeline: c.VkPipeline = undefined;
+pub var indexBuffer: c.VkBuffer = undefined;
+pub var indexBufferMemory: c.VkDeviceMemory = undefined;
+pub var instance: c.VkInstance = undefined;
+pub var pipelineLayout: c.VkPipelineLayout = undefined;
+pub var presentQueue: c.VkQueue = undefined;
+pub var queue_family_indices: QueueFamilyIndices = undefined;
+pub var renderPass: c.VkRenderPass = undefined;
+pub var surface: c.VkSurfaceKHR = undefined;
+pub var swapChain: c.VkSwapchainKHR = undefined;
+pub var swapChainExtent: c.VkExtent2D = undefined;
+pub var swapChainImageFormat: c.VkFormat = undefined;
+pub var swapChainSupport: SwapChainSupportDetails = undefined;
+pub var vertexBuffer: c.VkBuffer = undefined;
+pub var vertexBufferMemory: c.VkDeviceMemory = undefined;
+
+pub var descriptorSets: [max_frames_in_flight]c.VkDescriptorSet = undefined;
+pub var uniformBuffers: [max_frames_in_flight]c.VkBuffer = undefined;
+pub var uniformBuffersMemory: [max_frames_in_flight]c.VkDeviceMemory = undefined;
+pub var uniformBuffersMapped = [max_frames_in_flight]?*UniformBuffer{ null, null };
+
+pub var commandBuffers = std.ArrayList(c.VkCommandBuffer).init(permanent_alloc);
+pub var imageAvailableSemaphores = std.ArrayList(c.VkSemaphore).init(permanent_alloc);
+pub var inFlightFences = std.ArrayList(c.VkFence).init(permanent_alloc);
+pub var renderFinishedSemaphores = std.ArrayList(c.VkSemaphore).init(permanent_alloc);
+pub var swapChainImages = std.ArrayList(c.VkImage).init(permanent_alloc);
+pub var swapChainImageViews = std.ArrayList(c.VkImageView).init(permanent_alloc);
+pub var swapChainFramebuffers = std.ArrayList(c.VkFramebuffer).init(permanent_alloc);
 
 pub fn createFramebuffers() void {
     swapChainFramebuffers.resize(swapChainImageViews.items.len) catch {
