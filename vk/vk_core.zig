@@ -42,7 +42,9 @@ pub const SwapChainSupportDetails = struct {
 pub const max_frames_in_flight = 2;
 
 //Allocator
-var permanent_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+pub const gpa_alloc = gpa.allocator();
+var permanent_arena = std.heap.ArenaAllocator.init(gpa_alloc);
 pub const permanent_alloc = permanent_arena.allocator();
 
 //Public variables
@@ -59,6 +61,7 @@ pub var graphicsPipeline: c.VkPipeline = undefined;
 pub var indexBuffer: c.VkBuffer = undefined;
 pub var indexBufferMemory: c.VkDeviceMemory = undefined;
 pub var instance: c.VkInstance = undefined;
+pub var physicalDevice: c.VkPhysicalDevice = undefined;
 pub var pipelineLayout: c.VkPipelineLayout = undefined;
 pub var presentQueue: c.VkQueue = undefined;
 pub var queue_family_indices: QueueFamilyIndices = undefined;
@@ -143,7 +146,41 @@ pub fn createImageViews() void {
     }
 }
 
+//querySwapChain is first called by vk_init.zig, where the init_alloc is used while figuring out which device to use
+//Once that is established, then querySwapChainSupport can be called with null, and use the default allocator, which is vk_core.zig's gpa_alloc
+//The SwapChainSupportDetails struct must have .deinit() called on it when replaced!
+//TODO likely better to replace this with a .update method on the swapChainSupportDetails struct
+pub fn querySwapChainSupport(d: c.VkPhysicalDevice, opt_allocator: ?std.mem.Allocator) SwapChainSupportDetails {
+    const allocator = opt_allocator orelse gpa_alloc;
+    var details: SwapChainSupportDetails = SwapChainSupportDetails.init(allocator);
+    _ = vkf.p.vkGetPhysicalDeviceSurfaceCapabilitiesKHR.?(d, surface, @ptrCast(&details.capabilities));
+
+    var formatCount: u32 = undefined;
+    _ = vkf.p.vkGetPhysicalDeviceSurfaceFormatsKHR.?(d, surface, &formatCount, null);
+    if (formatCount != 0) {
+        const newMemory = details.formats.addManyAsSlice(formatCount) catch {
+            util.heapFail();
+        };
+        _ = vkf.p.vkGetPhysicalDeviceSurfaceFormatsKHR.?(d, surface, &formatCount, @ptrCast(newMemory));
+    }
+
+    var presentModeCount: u32 = undefined;
+    _ = vkf.p.vkGetPhysicalDeviceSurfacePresentModesKHR.?(d, surface, &presentModeCount, null);
+    if (presentModeCount != 0) {
+        const newMemory = details.presentModes.addManyAsSlice(formatCount) catch {
+            util.heapFail();
+        };
+        _ = vkf.p.vkGetPhysicalDeviceSurfacePresentModesKHR.?(d, surface, &presentModeCount, @ptrCast(newMemory));
+    }
+
+    return details;
+}
+
 pub fn createSwapChain() void {
+    //Deinit the swapchainsupport struct before replacing it.
+    swapChainSupport.deinit();
+    swapChainSupport = querySwapChainSupport(physicalDevice, null);
+
     const nested = struct {
         fn chooseSwapSurfaceFormat(
             availableFormats: *const std.ArrayList(c.VkSurfaceFormatKHR),

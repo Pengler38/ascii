@@ -20,7 +20,7 @@ const Vertex = graphics.Vertex;
 const UniformBuffer = core.UniformBuffer;
 
 //Allocator
-var init_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+var init_arena = std.heap.ArenaAllocator.init(core.gpa_alloc);
 const init_alloc = init_arena.allocator();
 
 //Constants
@@ -30,9 +30,6 @@ const validation_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 const deviceExtensions = [_][*:0]const u8{
     c.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 };
-
-//Private variables
-var physicalDevice: c.VkPhysicalDevice = undefined;
 
 pub fn initVulkan(w: *c.GLFWwindow) void {
     core.window = w;
@@ -60,18 +57,17 @@ pub fn initVulkan(w: *c.GLFWwindow) void {
 
     //Pick Vulkan device and find the queue families
     pickPhysicalDevice();
-    const queue_family_indices = findQueueFamilies(physicalDevice);
 
     //Query GLFW for presentation support
-    if (c.glfwGetPhysicalDevicePresentationSupport(core.instance, physicalDevice, queue_family_indices.presentation.?) == c.GLFW_FALSE) {
+    if (c.glfwGetPhysicalDevicePresentationSupport(core.instance, core.physicalDevice, core.queue_family_indices.presentation.?) == c.GLFW_FALSE) {
         std.debug.panic("GLFW Presentation not supported\n", .{});
     }
 
-    createLogicalDevice(queue_family_indices.graphics.?);
+    createLogicalDevice(core.queue_family_indices.graphics.?);
 
     //Create queues
-    vkf.p.vkGetDeviceQueue.?(core.device, queue_family_indices.graphics.?, 0, &core.graphicsQueue);
-    vkf.p.vkGetDeviceQueue.?(core.device, queue_family_indices.presentation.?, 0, &core.presentQueue);
+    vkf.p.vkGetDeviceQueue.?(core.device, core.queue_family_indices.graphics.?, 0, &core.graphicsQueue);
+    vkf.p.vkGetDeviceQueue.?(core.device, core.queue_family_indices.presentation.?, 0, &core.presentQueue);
 
     core.createSwapChain();
     core.createImageViews();
@@ -162,9 +158,9 @@ fn pickPhysicalDevice() void {
 
     for (devices) |d| {
         if (isDeviceSuitable(d) == true) {
-            physicalDevice = d;
+            core.physicalDevice = d;
             //Load swapchain support info permanently into core.swap
-            core.swapChainSupport = querySwapChainSupport(d, core.permanent_alloc);
+            core.swapChainSupport = core.querySwapChainSupport(d, null);
             return;
         }
     }
@@ -175,38 +171,13 @@ fn pickPhysicalDevice() void {
 fn isDeviceSuitable(d: c.VkPhysicalDevice) bool {
     //TODO check for appropriate PhysicalDeviceProperties and PhysicalDeviceFeatures
     core.queue_family_indices = findQueueFamilies(d);
-    const swap_chain_support = querySwapChainSupport(d, init_alloc);
+    const swap_chain_support = core.querySwapChainSupport(d, init_alloc);
     const swapChainSupported = swap_chain_support.formats.items.len > 0 and
         swap_chain_support.presentModes.items.len > 0;
 
     return core.queue_family_indices.graphics != null and core.queue_family_indices.presentation != null and
         checkDeviceExtensionSupport(d) == true and
         swapChainSupported;
-}
-
-fn querySwapChainSupport(d: c.VkPhysicalDevice, allocator: std.mem.Allocator) SwapChainSupportDetails {
-    var details: SwapChainSupportDetails = SwapChainSupportDetails.init(allocator);
-    _ = vkf.p.vkGetPhysicalDeviceSurfaceCapabilitiesKHR.?(d, core.surface, @ptrCast(&details.capabilities));
-
-    var formatCount: u32 = undefined;
-    _ = vkf.p.vkGetPhysicalDeviceSurfaceFormatsKHR.?(d, core.surface, &formatCount, null);
-    if (formatCount != 0) {
-        const newMemory = details.formats.addManyAsSlice(formatCount) catch {
-            util.heapFail();
-        };
-        _ = vkf.p.vkGetPhysicalDeviceSurfaceFormatsKHR.?(d, core.surface, &formatCount, @ptrCast(newMemory));
-    }
-
-    var presentModeCount: u32 = undefined;
-    _ = vkf.p.vkGetPhysicalDeviceSurfacePresentModesKHR.?(d, core.surface, &presentModeCount, null);
-    if (presentModeCount != 0) {
-        const newMemory = details.presentModes.addManyAsSlice(formatCount) catch {
-            util.heapFail();
-        };
-        _ = vkf.p.vkGetPhysicalDeviceSurfacePresentModesKHR.?(d, core.surface, &presentModeCount, @ptrCast(newMemory));
-    }
-
-    return details;
 }
 
 fn checkDeviceExtensionSupport(d: c.VkPhysicalDevice) bool {
@@ -238,10 +209,9 @@ fn findQueueFamilies(thisDevice: c.VkPhysicalDevice) QueueFamilyIndices {
 
     var queueFamilyCount: u32 = 0;
     vkf.p.vkGetPhysicalDeviceQueueFamilyProperties.?(thisDevice, &queueFamilyCount, null);
-    const queueFamilies = std.heap.c_allocator.alloc(c.VkQueueFamilyProperties, queueFamilyCount) catch {
+    const queueFamilies = init_alloc.alloc(c.VkQueueFamilyProperties, queueFamilyCount) catch {
         util.heapFail();
     };
-    defer std.heap.c_allocator.free(queueFamilies);
     vkf.p.vkGetPhysicalDeviceQueueFamilyProperties.?(thisDevice, &queueFamilyCount, @ptrCast(queueFamilies));
 
     for (queueFamilies, 0..) |queueFamily, i| {
@@ -281,7 +251,7 @@ fn createLogicalDevice(queueFamilyIndex: u32) void {
         .enabledExtensionCount = deviceExtensions.len,
         .ppEnabledExtensionNames = &deviceExtensions,
     };
-    if (vkf.p.vkCreateDevice.?(physicalDevice, &createInfo, null, @ptrCast(&core.device)) != c.VK_SUCCESS) {
+    if (vkf.p.vkCreateDevice.?(core.physicalDevice, &createInfo, null, @ptrCast(&core.device)) != c.VK_SUCCESS) {
         std.debug.panic("Failed to create logical device\n", .{});
     }
 }
@@ -535,12 +505,10 @@ fn createShaderModule(code: [:0]align(4) const u8) c.VkShaderModule {
 }
 
 fn createCommandPool() void {
-    const queue_family_indices: QueueFamilyIndices = findQueueFamilies(physicalDevice);
-
     const pool_info: c.VkCommandPoolCreateInfo = .{
         .sType = c.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = c.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-        .queueFamilyIndex = queue_family_indices.graphics.?,
+        .queueFamilyIndex = core.queue_family_indices.graphics.?,
     };
     if (vkf.p.vkCreateCommandPool.?(core.device, &pool_info, null, &core.commandPool) != c.VK_SUCCESS) {
         std.debug.panic("Failed to create command pool\n", .{});
@@ -707,7 +675,7 @@ fn createDescriptorSets() void {
 
 fn findMemoryType(type_filter: u32, properties: c.VkMemoryPropertyFlags) u32 {
     var mem_properties: c.VkPhysicalDeviceMemoryProperties = undefined;
-    vkf.p.vkGetPhysicalDeviceMemoryProperties.?(physicalDevice, &mem_properties);
+    vkf.p.vkGetPhysicalDeviceMemoryProperties.?(core.physicalDevice, &mem_properties);
 
     for (0..mem_properties.memoryTypeCount) |i| {
         if ((type_filter & (@as(u32, 1) << @as(u5, @intCast(i))) > 0) and
