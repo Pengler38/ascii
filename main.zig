@@ -68,8 +68,12 @@ export fn key_callback(optional_window: ?*c.GLFWwindow, key: c_int, scancode: c_
     _ = scancode;
     _ = mods;
     const current_window = optional_window.?;
-    if (key == c.GLFW_KEY_ESCAPE and action == c.GLFW_PRESS) {
-        c.glfwSetWindowShouldClose(current_window, c.GLFW_TRUE);
+    if (action == c.GLFW_PRESS) {
+        switch (key) {
+            c.GLFW_KEY_ESCAPE => c.glfwSetWindowShouldClose(current_window, c.GLFW_TRUE),
+            c.GLFW_KEY_1...c.GLFW_KEY_9 => vk.switchGraphics(key - 48),
+            else => {},
+        }
     }
     return;
 }

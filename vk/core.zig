@@ -4,8 +4,9 @@
 const std = @import("std");
 const c = @import("../c.zig");
 const math = @import("../math.zig");
-const vkf = @import("vk_function_pointers.zig");
 const util = @import("../util.zig");
+const vkf = @import("function_pointers.zig");
+const gp = @import("graphics_pipeline.zig");
 
 //types:
 //UniformBuffer
@@ -293,6 +294,8 @@ pub fn cleanupSwapChain() void {
 }
 
 pub fn cleanup() void {
+    gp.cleanup();
+
     for (0..max_frames_in_flight) |i| {
         vkf.p.vkDestroySemaphore.?(device, imageAvailableSemaphores.items[i], null);
         vkf.p.vkDestroySemaphore.?(device, renderFinishedSemaphores.items[i], null);
