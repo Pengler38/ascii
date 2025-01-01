@@ -1,16 +1,7 @@
-# Image to Ascii
-Preston Engler
+This is a little experimental project using Zig directly with GLFW + Vulkan.  
+The goal is to learn graphics programming, make some interesting shaders, and eventually implement cimgui to modify various parameters.  
 
-***Graphics Done With The Bare Minimum***  
-<sup>why make it easy when it can be difficult</sup>
-
-Image to Ascii is a little experimental project using Zig directly with GLFW + Vulkan.  
-The goal is to make some interesting shaders (such as the name of the project) and use cimgui to modify various parameters.  
 This repository uses cimgui and imgui as submodules, please clone using the --recursive flag, or by doing: `git submodule update --init --recursive`  
-
-## Zig Build Options
-Use `zig build --help` to see available build options  
-Of note are the Project-Specific Options, such as `-Doptimize=ReleaseFast`. `-Doptimize=Debug` is the default when no optimization level is specified.
 
 ## Building on Linux
 Install zig, glfw, vulkan-devel  
@@ -38,6 +29,9 @@ lib
 The project can be built and run with `zig build run`, this automatically adds the glfw3.dll to the path while running  
 If running the executable manually after build, ensure the appropriate glfw3.dll file is in the same directory
 
+## Zig Build Options
+Use `zig build --help` to see available build options  
+Of note are the Project-Specific Options, such as `-Doptimize=ReleaseFast`. `-Doptimize=Debug` is the default when no optimization level is specified.
 
 ## In Case You Want To DIY
 [GLFW Quick Start](https://www.glfw.org/docs/latest/quick.html)  
