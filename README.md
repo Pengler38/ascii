@@ -1,3 +1,5 @@
+![demo](https://github.com/user-attachments/assets/9f03a1bb-d6bd-4ade-928b-99e6d572fa89)
+
 This is a little experimental project using Zig directly with GLFW + Vulkan.  
 The goal is to learn graphics programming, make some interesting shaders, and eventually implement cimgui to modify various parameters.  
 
