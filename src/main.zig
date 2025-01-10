@@ -71,11 +71,19 @@ export fn key_callback(optional_window: ?*c.GLFWwindow, key: c_int, scancode: c_
     if (action == c.GLFW_PRESS) {
         switch (key) {
             c.GLFW_KEY_ESCAPE => c.glfwSetWindowShouldClose(current_window, c.GLFW_TRUE),
-            c.GLFW_KEY_1...c.GLFW_KEY_9 => vk.switchGraphics(key - 48),
+            c.GLFW_KEY_1...c.GLFW_KEY_9 => queueSwitchGraphics(key - 48),
             else => {},
         }
     }
     return;
+}
+
+var request_switch_graphics: ?i32 = null;
+var wait_switch_graphics: u32 = 0;
+
+fn queueSwitchGraphics(n: i32) void {
+    request_switch_graphics = n;
+    wait_switch_graphics = 2;
 }
 
 inline fn loop() void {
@@ -96,4 +104,13 @@ inline fn loop() void {
 
     c.glfwPollEvents();
     vk.drawFrame();
+
+    if (request_switch_graphics) |n| {
+        wait_switch_graphics -= 1;
+
+        if (wait_switch_graphics == 0) {
+            vk.switchGraphics(n);
+            request_switch_graphics = null;
+        }
+    }
 }

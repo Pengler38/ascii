@@ -10,6 +10,7 @@ const vkf = @import("function_pointers.zig");
 const graphics = @import("../graphics.zig");
 
 const ShaderCode = [:0]align(4) const u8;
+
 const tri_vert: ShaderCode = @alignCast(@embedFile("../shaders/tri.vert.spv"));
 const tri_frag: ShaderCode = @alignCast(@embedFile("../shaders/tri.frag.spv"));
 const blur_frag: ShaderCode = @alignCast(@embedFile("../shaders/blur.frag.spv"));
@@ -30,6 +31,7 @@ pub fn createDefaultGraphicsPipeline() void {
     createGraphicsPipeline(&tri_vert, &tri_frag);
 }
 
+//Causes an error if used twice in a single frame
 pub fn switchGraphics(n: i32) void {
     //The current pipeline is still in use, move it to the old_pipeline var
     if (old_pipeline != null) {
@@ -231,7 +233,7 @@ fn createGraphicsPipeline(vert_shader_code: *const ShaderCode, frag_shader_code:
     }
 }
 
-fn createShaderModule(code: [:0]align(4) const u8) c.VkShaderModule {
+fn createShaderModule(code: ShaderCode) c.VkShaderModule {
     const createInfo: c.VkShaderModuleCreateInfo = .{
         .sType = c.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .codeSize = code.len,
