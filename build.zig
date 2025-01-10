@@ -14,7 +14,7 @@ pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
     const exe = b.addExecutable(.{
         .name = "test",
-        .root_source_file = b.path("main.zig"),
+        .root_source_file = b.path("src/main.zig"),
         .target = b.graph.host,
         .optimize = optimize,
     });
@@ -72,15 +72,15 @@ pub fn build(b: *std.Build) !void {
 fn addShaders(b: *std.Build) *std.Build.Step.WriteFile {
     //Step to compile shaders using glslc
     const names = [_][:0]const u8{
-        "shaders/tri.vert",
-        "shaders/tri.frag",
-        "shaders/blur.frag",
+        "src/shaders/tri.vert",
+        "src/shaders/tri.frag",
+        "src/shaders/blur.frag",
     };
 
     const out_names = [_][:0]const u8{
-        "shaders/tri.vert.spv",
-        "shaders/tri.frag.spv",
-        "shaders/blur.frag.spv",
+        "src/shaders/tri.vert.spv",
+        "src/shaders/tri.frag.spv",
+        "src/shaders/blur.frag.spv",
     };
 
     //Copy shader output in cache to source files in /shader folder
